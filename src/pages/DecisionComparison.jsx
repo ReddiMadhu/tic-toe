@@ -1,50 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import ComparisonTable from '../components/ComparisonTable';
 import ShapDrivers from '../components/ShapDrivers';
-import { fetchProperties, fetchDecisions, fetchShapDrivers } from '../services/api';
+import { fetchProperties, fetchResults } from '../services/api';
+import { mockResults } from '../data/mockData';
 
-/**
- * DecisionComparison page - displays underwriter vs AI decision comparison
- * with 70/30 layout (table on left, SHAP drivers on right)
- */
 const DecisionComparison = () => {
   const [properties, setProperties] = useState([]);
-  const [decisions, setDecisions] = useState([]);
-  const [shapDrivers, setShapDrivers] = useState([]);
+  const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
+  const submissionId = location.state?.submissionId;
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       try {
-        const [propertiesData, decisionsData, shapData] = await Promise.all([
+        const [propertiesData, resultsData] = await Promise.all([
           fetchProperties(),
-          fetchDecisions(),
-          fetchShapDrivers()
+          fetchResults(submissionId || 1),
         ]);
         setProperties(propertiesData);
-        setDecisions(decisionsData);
-        setShapDrivers(shapData);
+        setResults(resultsData);
       } catch (error) {
         console.error('Error loading data:', error);
+        setResults(mockResults);
       } finally {
         setLoading(false);
       }
     };
-
     loadData();
-  }, []);
+  }, [submissionId]);
 
   const handleViewDetails = (propertyId) => {
-    console.log('View details for property:', propertyId);
-    // Future enhancement: navigate to detailed property page
-    alert(`Property details view coming soon for Property ID: ${propertyId}`);
-  };
-
-  const handleBackToOverview = () => {
-    navigate('/');
+    navigate(`/property/${propertyId}`, {
+      state: { submissionId: submissionId || results?.submission_id, results },
+    });
   };
 
   if (loading) {
@@ -58,26 +50,52 @@ const DecisionComparison = () => {
     );
   }
 
+  // Build decisions array from results for ComparisonTable compatibility
+  const decisions = (results?.results || []).map((r) => ({
+    propertyId: r.property_id,
+    userSelection: r.user_selection,
+    aiPrediction: {
+      risk: r.ai_risk,
+      quotePercentage: Math.round(r.quote_propensity * 100),
+    },
+  }));
+
+  // Global SHAP: aggregate top drivers across all properties
+  const allShap = (results?.results || []).flatMap((r) => r.shap_values || []);
+  const shapMap = {};
+  allShap.forEach(({ feature, contribution }) => {
+    if (!shapMap[feature]) shapMap[feature] = 0;
+    shapMap[feature] += Math.abs(contribution);
+  });
+  const globalShap = Object.entries(shapMap)
+    .map(([feature, contribution]) => ({ feature, contribution: parseFloat((contribution / 6).toFixed(3)) }))
+    .sort((a, b) => b.contribution - a.contribution)
+    .slice(0, 8);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          {/* <button
-            onClick={handleBackToOverview}
-            className="mb-2 text-blue-600 hover:text-blue-800 flex items-center text-sm font-medium"
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-start gap-3">
+          <button
+            onClick={() => navigate('/')}
+            title="Home"
+            className="text-gray-400 hover:text-blue-600 transition-colors mt-1 flex-shrink-0"
           >
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
             </svg>
-            Back to Overview
-          </button> */}
-          <h1 className="text-2xl font-bold text-gray-900">
-            Underwriter vs AI – Decision Comparison
-          </h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Review how your selections compare with AI risk predictions.
-          </p>
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Underwriter vs AI – Decision Comparison
+            </h1>
+            <p className="mt-1 text-sm text-gray-600">
+              {results?.underwriter_name
+                ? `Reviewing ${results.underwriter_name}'s selections against AI risk predictions.`
+                : 'Review how your selections compare with AI risk predictions.'}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -95,7 +113,7 @@ const DecisionComparison = () => {
 
           {/* RIGHT SIDE - 30% - SHAP Drivers */}
           <div className="lg:w-[30%]">
-            <ShapDrivers drivers={shapDrivers} />
+            <ShapDrivers drivers={globalShap} />
           </div>
         </div>
       </div>

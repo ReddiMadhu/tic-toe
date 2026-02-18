@@ -44,3 +44,18 @@ a,
 .transition-transform {
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* Pipeline animation log line fade-in */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.35s ease-out forwards;
+}
+
+/* Dark scrollbar for pipeline page */
+.dark-scrollbar::-webkit-scrollbar-track { background: #111827; }
+.dark-scrollbar::-webkit-scrollbar-thumb { background: #374151; }
+.dark-scrollbar::-webkit-scrollbar-thumb:hover { background: #4b5563; }
