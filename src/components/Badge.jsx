@@ -10,7 +10,7 @@ import React from 'react';
  */
 const Badge = ({ variant = 'default', children, value }) => {
   // Base classes for all badges
-  const baseClasses = 'inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium';
+  const baseClasses = 'inline-flex items-center rounded-full text-xs font-medium';
 
   // Variant-specific styling
   const variantClasses = {
@@ -23,12 +23,12 @@ const Badge = ({ variant = 'default', children, value }) => {
       : value === 'discarded'
       ? 'bg-red-500 text-white px-2 py-0.5'
       : 'bg-gray-200 text-gray-500 px-2 py-0.5',
-    risk: value === 'High'
-      ? 'bg-red-100 text-red-700 border border-red-300 px-2 py-0.5'
-      : value === 'Medium'
-      ? 'bg-amber-100 text-amber-700 border border-amber-300 px-2 py-0.5'
-      : value === 'Low'
+    risk: (value === 'High' || value?.includes('High'))
       ? 'bg-green-100 text-green-700 border border-green-300 px-2 py-0.5'
+      : (value === 'Medium' || value?.includes('Mid'))
+      ? 'bg-amber-100 text-amber-700 border border-amber-300 px-2 py-0.5'
+      : (value === 'Low' || value?.includes('Low'))
+      ? 'bg-red-100 text-red-700 border border-red-300 px-2 py-0.5'
       : 'bg-gray-100 text-gray-700 border border-gray-300 px-2 py-0.5',
     default: 'bg-gray-100 text-gray-700 border border-gray-300 px-2 py-0.5'
   };

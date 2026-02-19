@@ -1,12 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { mockProperties, mockResults } from '../data/mockData';
+import { mockProperties, mockResultsNew } from '../data/mockData';
 
-const RISK_COLORS = {
-  High:   { bg: 'bg-red-100',   text: 'text-red-700',   border: 'border-red-300'   },
-  Medium: { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-300' },
-  Low:    { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300' },
-};
 
 const CONDITION_COLORS = {
   Excellent: 'text-green-600',
@@ -152,10 +147,21 @@ const PropertyDetail = () => {
   const location = useLocation();
   const [showVulnerabilityPopup, setShowVulnerabilityPopup] = useState(false);
 
-  const propertyId = parseInt(id, 10);
-  const results = location.state?.results || mockResults;
-  const propertyResult = results?.results?.find((r) => r.property_id === propertyId);
-  const property = mockProperties.find((p) => p.id === propertyId);
+  // Data passed from DecisionComparison via router state
+  const passedProperty = location.state?.property;
+  const passedPropertyResult = location.state?.propertyResult;
+  const passedResults = location.state?.results;
+
+  // Use passed data, fall back to scanning mockResultsNew by id
+  const results = passedResults || mockResultsNew;
+  const propertiesList = mockProperties;
+
+  const propertyResult = passedPropertyResult
+    || results?.results?.find((r) => r.submission_id === id)
+    || results?.results?.[0];
+
+  const propIndex = propertyResult?.property_index ?? 0;
+  const property = passedProperty || propertiesList[propIndex] || propertiesList[0];
 
   if (!property || !propertyResult) {
     return (
@@ -168,20 +174,38 @@ const PropertyDetail = () => {
     );
   }
 
-  const { ai_risk, quote_propensity, total_risk_score, shap_values = [], vulnerability_data = {}, user_selection } = propertyResult;
-  const riskColor = RISK_COLORS[ai_risk] || RISK_COLORS.Medium;
+  const {
+    quote_propensity, quote_propensity_label,
+    total_risk_score,
+    property_vulnerability_risk, construction_risk_score,
+    locality_risk, coverage_risk, claim_history_risk, property_condition_risk,
+    shap_values = [], vulnerability_data = {}, user_selection,
+    property_state, submission_channel: res_channel, occupancy_type: res_occupancy, cover_type: res_cover,
+  } = propertyResult;
 
+  // Color based purely on quote_propensity_label — no ai_risk
+  const propensityColorMap = {
+    'High Propensity': { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300' },
+    'Mid Propensity':  { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-300' },
+    'Low Propensity':  { bg: 'bg-red-100',   text: 'text-red-700',   border: 'border-red-300'   },
+  };
+  const propColor = propensityColorMap[quote_propensity_label] || propensityColorMap['Mid Propensity'];
+
+  // Real risk breakdown from prediction data (scores out of 100)
   const riskBreakdown = [
-    { label: 'Property Vulnerability Risk', score: total_risk_score, hasView: true },
-    { label: 'Property Condition Risk',     score: parseFloat((total_risk_score + 0.03).toFixed(2)) },
-    { label: 'Locality Risk',               score: parseFloat((total_risk_score - 0.18).toFixed(2)) },
-    { label: 'Claim History Risk',          score: parseFloat((total_risk_score - 0.26).toFixed(2)) },
-    { label: 'Coverage Risk',               score: parseFloat((total_risk_score - 0.13).toFixed(2)) },
+    { label: 'Property Vulnerability Risk', score: property_vulnerability_risk, hasView: true },
+    { label: 'Property Condition Risk',     score: property_condition_risk },
+    { label: 'Locality Risk',               score: locality_risk },
+    { label: 'Claim History Risk',          score: claim_history_risk },
+    { label: 'Coverage Risk',               score: coverage_risk },
+    { label: 'Construction Risk',           score: construction_risk_score },
   ];
 
-  const maxShap = Math.max(...shap_values.map((s) => Math.abs(s.contribution)));
-  // Sort: positive contributions first, negative last
-  const sortedShap = [...shap_values].sort((a, b) => b.contribution - a.contribution);
+  const maxShap = Math.max(...shap_values.map((s) => s.mean_abs_shap ?? Math.abs(s.contribution ?? 0)));
+  // Sort by mean_abs_shap descending
+  const sortedShap = [...shap_values].sort((a, b) =>
+    (b.mean_abs_shap ?? Math.abs(b.contribution ?? 0)) - (a.mean_abs_shap ?? Math.abs(a.contribution ?? 0))
+  );
 
   const selectionIcon = user_selection === 'prioritized' ? '🟢' : user_selection === 'discarded' ? '🔴' : '⚪';
   const selectionLabel = user_selection === 'prioritized' ? 'Prioritized' : user_selection === 'discarded' ? 'Discarded' : 'Not Selected';
@@ -191,25 +215,31 @@ const PropertyDetail = () => {
     ? 'bg-red-50 text-red-600 border-red-300'
     : 'bg-gray-100 text-gray-500 border-gray-300';
 
-  // Property params for table (2 rows)
+  // Use result data where richer; fall back to property static fields
+  const displayOccupancy = res_occupancy || property.occupancy_type;
+  const displayChannel   = res_channel   || property.submission_channel;
+  const displayCover     = res_cover     || property.cover_type;
+  const displayState     = property_state || property.state;
+
+  // Property params for table (2 rows) — mix static + result fields
   const paramRow1 = [
-    { label: 'Submission', value: property.submission_channel },
-    { label: 'Broker',     value: property.broker_company },
-    { label: 'Occupancy',  value: property.occupancy_type },
-    { label: 'Owner',      value: property.occupancy_type === 'Owner-Occupied' ? 'Yes' : 'No' },
+    { label: 'Sub ID',     value: propertyResult.submission_id },
+    { label: 'Channel',    value: displayChannel },
+    { label: 'Occupancy',  value: displayOccupancy },
     { label: 'County',     value: property.property_county },
+    { label: 'State',      value: displayState },
     { label: 'Age',        value: `${property.property_age} yrs` },
     { label: 'Value',      value: formatCurrency(property.property_value) },
   ];
   const paramRow2 = [
-    { label: 'County',    value: property.property_county },
-    { label: 'Cover',     value: property.cover_type },
-    { label: 'Building',  value: formatCurrencyShort(property.building_coverage_limit) },
-    { label: 'Contents',  value: formatCurrencyShort(property.contents_coverage_limit) },
-    { label: 'Broker',    value: property.broker_company },
+    { label: 'Cover',      value: displayCover },
+    { label: 'Building',   value: formatCurrencyShort(property.building_coverage_limit) },
+    { label: 'Contents',   value: formatCurrencyShort(property.contents_coverage_limit) },
+    { label: 'Broker',     value: property.broker_company },
+    { label: 'Risk Score', value: total_risk_score },
   ];
 
-  const riskEmoji = ai_risk === 'High' ? '🔴' : ai_risk === 'Medium' ? '🟠' : '🟢';
+  const riskEmoji = quote_propensity_label?.includes('High') ? '🟢' : quote_propensity_label?.includes('Low') ? '🔴' : '🟠';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -252,15 +282,17 @@ const PropertyDetail = () => {
           <SectionBar title="Submission Overview" />
           <div className="px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
             <span className="text-gray-600">
-              Submission ID: <span className="font-semibold text-gray-900">SUB-{String(propertyId).padStart(5, '0')}</span>
+              Submission ID: <span className="font-semibold text-gray-900">{propertyResult.submission_id}</span>
             </span>
             <span className="text-gray-300">|</span>
             <span className="text-gray-600">
-              Score: <span className={`font-semibold ${riskColor.text}`}>{total_risk_score.toFixed(2)}</span>
+              Risk Score: <span className={`font-semibold ${propColor.text}`}>{total_risk_score}</span>
+              <span className="text-gray-400 text-xs ml-1">/ 100</span>
             </span>
             <span className="text-gray-300">|</span>
-            <span className="text-gray-600 flex items-center gap-1">
-              Category: <span className={`font-semibold ml-1 ${riskColor.text}`}>{riskEmoji} {ai_risk} Risk</span>
+            <span className="text-gray-600">
+              Propensity: <span className={`font-semibold ${propColor.text}`}>{Math.round(quote_propensity * 100)}%</span>
+              {quote_propensity_label && <span className={`ml-1.5 text-xs font-semibold px-2 py-0.5 rounded border ${propColor.bg} ${propColor.text} ${propColor.border}`}>{riskEmoji} {quote_propensity_label}</span>}
             </span>
             <div className="ml-auto">
               <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border ${selectionCls}`}>
@@ -334,21 +366,16 @@ const PropertyDetail = () => {
               <p className="text-xs font-semibold text-gray-700 mb-3">What Influenced the AI Prediction</p>
               <div className="space-y-1.5">
                 {sortedShap.map((shap, i) => {
-                  const abs = Math.abs(shap.contribution);
-                  const pct = maxShap > 0 ? (abs / maxShap) * 100 : 0;
-                  const isNegative = shap.contribution < 0;
+                  const val = shap.mean_abs_shap ?? Math.abs(shap.contribution ?? 0);
+                  const pct = maxShap > 0 ? (val / maxShap) * 100 : 0;
                   return (
                     <div key={i} className="flex items-center gap-2">
                       <span className="text-[10px] text-gray-500 w-44 truncate text-right flex-shrink-0">
-                        {shap.feature.replace(/_/g, '_')} ({abs.toFixed(3)})
+                        {shap.feature.replace(/_/g, ' ')} ({val.toFixed(3)})
                       </span>
                       <div className="flex-1 h-4 bg-gray-100 rounded-sm overflow-hidden">
                         <div
-                          className={`h-full rounded-sm transition-all duration-500 ${
-                            isNegative
-                              ? 'bg-red-400'
-                              : 'bg-green-600'
-                          }`}
+                          className="h-full rounded-sm transition-all duration-500 bg-green-600"
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -360,12 +387,8 @@ const PropertyDetail = () => {
               {/* Legend */}
               <div className="mt-4 pt-3 border-t border-gray-100 space-y-1">
                 <div className="flex items-center gap-2 text-[10px] text-gray-500">
-                  <div className="w-6 h-2.5 rounded-sm bg-red-400 flex-shrink-0"></div>
-                  <span>Red → Reduced Risk (Negative Contribution)</span>
-                </div>
-                <div className="flex items-center gap-2 text-[10px] text-gray-500">
                   <div className="w-6 h-2.5 rounded-sm bg-green-600 flex-shrink-0"></div>
-                  <span>Dark Green → Increased Risk (Positive Contribution)</span>
+                  <span>Green → Mean Absolute SHAP (feature importance)</span>
                 </div>
               </div>
             </div>
@@ -375,30 +398,30 @@ const PropertyDetail = () => {
           <div className="rounded-lg overflow-hidden border border-gray-300 bg-white shadow-sm flex flex-col">
             <SectionBar
               title="Property Risk Breakdown (Structured Risks)"
-              right={
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-red-400">🟥</span>
-                  <span className="text-xs text-red-400">🟥</span>
-                </div>
-              }
+              
             />
             <div className="p-4 flex-1">
               <p className="text-sm font-bold text-gray-800 mb-3">
-                Total Risk Score: <span className={riskColor.text}>{total_risk_score.toFixed(2)}</span>
+                Total Risk Score: <span className={total_risk_score >= 70 ? 'text-red-600' : total_risk_score >= 40 ? 'text-amber-600' : 'text-green-600'}>{total_risk_score}</span>
+                <span className="text-xs text-gray-400 font-normal ml-1">/ 100</span>
               </p>
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-gray-200">
                     <th className="text-left text-[10px] text-gray-400 font-medium pb-1.5 uppercase tracking-wide">Risk Factor</th>
-                    <th className="text-left text-[10px] text-gray-400 font-medium pb-1.5 uppercase tracking-wide w-14">Score</th>
+                    <th className="text-left text-[10px] text-gray-400 font-medium pb-1.5 uppercase tracking-wide w-16">Score</th>
                     <th className="text-right text-[10px] text-gray-400 font-medium pb-1.5 uppercase tracking-wide w-14">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {riskBreakdown.map(({ label, score, hasView }) => (
+                  {riskBreakdown.map(({ label, score, hasView }) => {
+                    const scoreColor = (score ?? 0) >= 70 ? 'text-red-600' : (score ?? 0) >= 40 ? 'text-amber-600' : 'text-green-600';
+                    return (
                     <tr key={label} className="hover:bg-gray-50">
                       <td className="py-2 text-gray-700 font-medium">{label}</td>
-                      <td className="py-2 font-mono font-semibold text-gray-800">{score.toFixed(2)}</td>
+                      <td className="py-2 w-16">
+                        <span className={`font-mono font-semibold text-sm ${scoreColor}`}>{score ?? '—'}</span>
+                      </td>
                       <td className="py-2 text-right">
                         {hasView ? (
                           <button
@@ -412,7 +435,8 @@ const PropertyDetail = () => {
                         )}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
 
@@ -433,8 +457,8 @@ const PropertyDetail = () => {
                       <span>High</span>
                     </div>
                   </div>
-                  <span className={`text-xs font-bold px-2 py-1 rounded border ${riskColor.bg} ${riskColor.text} ${riskColor.border}`}>
-                    {ai_risk}
+                  <span className={`text-xs font-bold px-2 py-1 rounded border ${propColor.bg} ${propColor.text} ${propColor.border}`}>
+                    {quote_propensity_label}
                   </span>
                 </div>
               </div>

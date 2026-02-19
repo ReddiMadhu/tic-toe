@@ -12,8 +12,8 @@ const UnderwriterDecision = () => {
   const navigate = useNavigate();
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [prioritized, setPrioritized] = useState(new Set());
-  const [discarded, setDiscarded] = useState(new Set());
+  // Map of property.id -> 'prioritized' | 'discarded' | null
+  const [selections, setSelections] = useState({});
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -26,40 +26,22 @@ const UnderwriterDecision = () => {
     });
   }, []);
 
-  const handlePrioritize = (id) => {
-    setPrioritized((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
+  const handleSelect = (id, value) => {
+    setSelections((prev) => ({
+      ...prev,
+      // clicking same option again deselects it
+      [id]: prev[id] === value ? null : value,
+    }));
     setError('');
   };
 
-  const handleDiscard = (id) => {
-    setDiscarded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-    setError('');
-  };
-
-  // IDs that are in both sets (overlap conflict)
-  const overlap = [...prioritized].filter((id) => discarded.has(id));
+  const prioritized = Object.entries(selections).filter(([, v]) => v === 'prioritized').map(([k]) => Number(k));
+  const discarded   = Object.entries(selections).filter(([, v]) => v === 'discarded').map(([k]) => Number(k));
 
   const canSubmit =
-    prioritized.size >= 1 &&
-    discarded.size >= 1 &&
-    name.trim().length > 0 &&
-    overlap.length === 0;
+    prioritized.length >= 1 &&
+    discarded.length >= 1 &&
+    name.trim().length > 0;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -68,8 +50,8 @@ const UnderwriterDecision = () => {
     try {
       await submitDecision({
         underwriter_name: name.trim(),
-        prioritized_ids: [...prioritized],
-        discarded_ids: [...discarded],
+        prioritized_ids: prioritized,
+        discarded_ids: discarded,
       });
       setSubmitted(true);
     } catch (err) {
@@ -109,7 +91,6 @@ const UnderwriterDecision = () => {
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Decision Submitted Successfully</h2>
           <p className="text-gray-500 mb-6">Comparing your underwriting strategy with AI…</p>
           <div className="flex items-center justify-center gap-2 text-sm text-blue-600">
-            {/* <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div> */}
             <span>The presenter will initiate the AI comparison shortly.</span>
           </div>
         </div>
@@ -147,24 +128,22 @@ const UnderwriterDecision = () => {
             As an underwriter, which properties would you <strong>prioritize for approval</strong> and which would you <strong>discard</strong> based on risk profile?
           </p>
           <p className="text-blue-700 text-xs mt-1">
-            You must select at least one property in each category. The same property cannot be both prioritized and discarded.
+            Select one action per property. You must mark at least one as prioritized and one as discarded.
           </p>
         </div>
 
         {/* 2x3 Property Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           {properties.map((property) => {
-            const isPrioritized = prioritized.has(property.id);
-            const isDiscarded = discarded.has(property.id);
-            const hasOverlap = isPrioritized && isDiscarded;
+            const sel = selections[property.id] ?? null;
+            const isPrioritized = sel === 'prioritized';
+            const isDiscarded   = sel === 'discarded';
 
             return (
               <div
                 key={property.id}
                 className={`bg-white rounded-xl shadow-sm border-2 overflow-hidden transition-all duration-200 ${
-                  hasOverlap
-                    ? 'border-red-400 shadow-red-100'
-                    : isPrioritized
+                  isPrioritized
                     ? 'border-green-400 shadow-green-50'
                     : isDiscarded
                     ? 'border-red-300 shadow-red-50'
@@ -181,11 +160,6 @@ const UnderwriterDecision = () => {
                   <div className="absolute top-2 left-2 bg-blue-600 text-white font-bold text-xs px-2.5 py-1 rounded-md shadow">
                     {property.propertyId}
                   </div>
-                  {hasOverlap && (
-                    <div className="absolute bottom-0 left-0 right-0 bg-red-500 text-white text-xs text-center py-1 font-medium">
-                      Cannot be both prioritized and discarded
-                    </div>
-                  )}
                 </div>
 
                 {/* Metadata */}
@@ -210,51 +184,28 @@ const UnderwriterDecision = () => {
                     {property.property_age} yrs
                   </div>
 
-                  {/* Decision Controls */}
-                  <div className="space-y-2 pt-2 border-t border-gray-100">
-                    {/* Prioritize */}
-                    <label className={`flex items-center gap-2.5 cursor-pointer rounded-lg px-2 py-1.5 transition-colors ${
-                      isPrioritized ? 'bg-green-50' : 'hover:bg-gray-50'
-                    }`}>
-                      <input
-                        type="checkbox"
-                        checked={isPrioritized}
-                        onChange={() => handlePrioritize(property.id)}
-                        className="w-4 h-4 accent-green-600 cursor-pointer"
-                      />
-                      <span className={`text-sm font-medium ${isPrioritized ? 'text-green-700' : 'text-gray-600'}`}>
-                        Prioritize this property
-                      </span>
-                      {isPrioritized && (
-                        <span className="ml-auto text-green-600">
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                        </span>
-                      )}
-                    </label>
-
-                    {/* Discard */}
-                    <label className={`flex items-center gap-2.5 cursor-pointer rounded-lg px-2 py-1.5 transition-colors ${
-                      isDiscarded ? 'bg-red-50' : 'hover:bg-gray-50'
-                    }`}>
-                      <input
-                        type="checkbox"
-                        checked={isDiscarded}
-                        onChange={() => handleDiscard(property.id)}
-                        className="w-4 h-4 accent-red-500 cursor-pointer"
-                      />
-                      <span className={`text-sm font-medium ${isDiscarded ? 'text-red-600' : 'text-gray-600'}`}>
-                        Discard this property
-                      </span>
-                      {isDiscarded && (
-                        <span className="ml-auto text-red-500">
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                          </svg>
-                        </span>
-                      )}
-                    </label>
+                  {/* Single-choice Decision Controls */}
+                  <div className="flex gap-2 pt-2 border-t border-gray-100">
+                    <button
+                      onClick={() => handleSelect(property.id, 'prioritized')}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                        isPrioritized
+                          ? 'bg-green-500 text-white border-green-500'
+                          : 'bg-white text-gray-600 border-gray-300 hover:border-green-400 hover:text-green-700'
+                      }`}
+                    >
+                      ✓ Prioritize
+                    </button>
+                    <button
+                      onClick={() => handleSelect(property.id, 'discarded')}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                        isDiscarded
+                          ? 'bg-red-500 text-white border-red-500'
+                          : 'bg-white text-gray-600 border-gray-300 hover:border-red-400 hover:text-red-600'
+                      }`}
+                    >
+                      ✕ Discard
+                    </button>
                   </div>
                 </div>
               </div>
@@ -263,13 +214,13 @@ const UnderwriterDecision = () => {
         </div>
 
         {/* Selection Summary */}
-        {(prioritized.size > 0 || discarded.size > 0) && (
+        {(prioritized.length > 0 || discarded.length > 0) && (
           <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-wrap gap-4">
-            {prioritized.size > 0 && (
+            {prioritized.length > 0 && (
               <div>
                 <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Prioritized</span>
                 <div className="flex gap-1.5 mt-1">
-                  {[...prioritized].map((id) => {
+                  {prioritized.map((id) => {
                     const p = properties.find((x) => x.id === id);
                     return (
                       <span key={id} className="bg-green-100 text-green-700 font-bold text-xs px-2 py-0.5 rounded">
@@ -280,11 +231,11 @@ const UnderwriterDecision = () => {
                 </div>
               </div>
             )}
-            {discarded.size > 0 && (
+            {discarded.length > 0 && (
               <div>
                 <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Discarded</span>
                 <div className="flex gap-1.5 mt-1">
-                  {[...discarded].map((id) => {
+                  {discarded.map((id) => {
                     const p = properties.find((x) => x.id === id);
                     return (
                       <span key={id} className="bg-red-100 text-red-600 font-bold text-xs px-2 py-0.5 rounded">
@@ -318,15 +269,6 @@ const UnderwriterDecision = () => {
             </div>
           )}
 
-          {overlap.length > 0 && (
-            <div className="text-red-600 text-sm mb-4 flex items-center gap-2">
-              <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-              A property cannot be both prioritized and discarded. Please resolve the conflict.
-            </div>
-          )}
-
           <button
             onClick={handleSubmit}
             disabled={!canSubmit || submitting}
@@ -351,8 +293,8 @@ const UnderwriterDecision = () => {
 
           {!canSubmit && !submitting && (
             <p className="text-xs text-gray-400 text-center mt-2">
-              {prioritized.size === 0 && 'Select at least one property to prioritize. '}
-              {discarded.size === 0 && 'Select at least one property to discard. '}
+              {prioritized.length === 0 && 'Select at least one property to prioritize. '}
+              {discarded.length === 0 && 'Select at least one property to discard. '}
               {name.trim().length === 0 && 'Enter your name.'}
             </p>
           )}

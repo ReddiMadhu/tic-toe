@@ -20,7 +20,7 @@ const ComparisonTable = ({ properties, decisions, onViewDetails }) => {
     }).format(value);
   };
 
-  // Get decision for a property
+  // Get decision for a property — match by submission_id string
   const getDecision = (propertyId) => {
     return decisions.find(d => d.propertyId === propertyId);
   };
@@ -33,18 +33,19 @@ const ComparisonTable = ({ properties, decisions, onViewDetails }) => {
             <tr>
               <th className="px-3 pt-1 pb-2 text-left text-sm font-semibold text-gray-800">Property</th>
               <th className="px-3 pt-1 pb-2 text-left text-sm font-semibold text-gray-800">Your Selection</th>
-              <th className="px-3 pt-1 pb-2 text-left text-sm font-semibold text-gray-800">AI Prediction</th>
-              <th className="px-3 pt-1 pb-2 text-left text-sm font-semibold text-gray-800">Action</th>
+              <th className="px-3 pt-1 pb-2 text-left text-sm font-semibold text-gray-800 w-36">AI Prediction</th>
+              <th className="px-3 pt-1 pb-2 text-left text-sm font-semibold text-gray-800 w-48">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {properties.map((property) => {
-              const decision = getDecision(property.id);
+              // Match decision by propertyId letter (A–F) — avoids submission_id format mismatches
+              const decision = getDecision(property.propertyId);
               const userSelection = decision?.userSelection;
               const aiPrediction = decision?.aiPrediction;
 
               return (
-                <tr key={property.id} className="hover:bg-gray-50 transition-colors">
+                <tr key={property.submission_id || property.id} className="hover:bg-gray-50 transition-colors">
                   {/* Property Column - Thumbnail + Key Metadata */}
                   <td className="px-3 pt-1 pb-2">
                     <div className="flex items-center space-x-4">
@@ -85,9 +86,9 @@ const ComparisonTable = ({ properties, decisions, onViewDetails }) => {
                     {aiPrediction ? (
                       <div>
                         <Badge variant="risk" value={aiPrediction.risk}>
-                          {aiPrediction.risk} Risk
+                          {aiPrediction.risk}
                         </Badge>
-                        <div className="text-sm text-gray-600 mt-1">
+                        <div className="text-xs text-gray-500 mt-0.5">
                           Quote: <span className="font-semibold">{aiPrediction.quotePercentage}%</span>
                         </div>
                       </div>
@@ -99,7 +100,7 @@ const ComparisonTable = ({ properties, decisions, onViewDetails }) => {
                   {/* Action Column */}
                   <td className="px-3 pt-1 pb-2">
                     <button
-                      onClick={() => onViewDetails(property.id)}
+                      onClick={() => onViewDetails(property, decision)}
                       className="px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors inline-flex items-center gap-1.5"
                     >
                       View Details

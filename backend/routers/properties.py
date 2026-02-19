@@ -1,7 +1,12 @@
+import os
+import math
+import pandas as pd
 from fastapi import APIRouter
-from typing import List, Optional
 
 router = APIRouter()
+
+# Letter labels A–F mapped to index
+PROPERTY_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F']
 
 MOCK_PROPERTIES = [
     {
@@ -108,7 +113,62 @@ MOCK_PROPERTIES = [
     },
 ]
 
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+csv_path = os.path.join(base_dir, "Test", "Property_data - AI.csv")
+
+
+def _clean(value, fallback=None):
+    """Return fallback if value is NaN/None, else return value."""
+    if value is None:
+        return fallback
+    try:
+        if math.isnan(float(value)):
+            return fallback
+    except (TypeError, ValueError):
+        pass
+    return value
+
+
+def _normalize_sub_id(value, fallback=None):
+    """Return submission_id from CSV, fall back to mock value."""
+    return _clean(value, fallback)
+
 
 @router.get("")
 def get_properties():
-    return MOCK_PROPERTIES
+    try:
+        if not os.path.exists(csv_path):
+            return MOCK_PROPERTIES
+
+        df = pd.read_csv(csv_path)
+        excel_records = df.to_dict(orient="records")
+
+        merged_records = []
+        for i, record in enumerate(excel_records[:6]):   # only first 6
+            mock = MOCK_PROPERTIES[i % len(MOCK_PROPERTIES)]
+            merged_record = {
+                "id": i + 1,
+                "propertyId": PROPERTY_LETTERS[i],       # always A–F
+                "submission_id": _normalize_sub_id(record.get("submission_id"), mock.get("submission_id")),
+                "submission_channel": _clean(record.get("submission_channel"), mock.get("submission_channel")),
+                "occupancy_type": _clean(record.get("occupancy_type"), mock.get("occupancy_type")),
+                "property_age": _clean(record.get("property_age"), mock.get("property_age")),
+                "property_value": _clean(record.get("property_value"), mock.get("property_value")),
+                "property_county": _clean(record.get("Property_county"), mock.get("property_county")),
+                "cover_type": _clean(record.get("cover_type"), mock.get("cover_type")),
+                "building_coverage_limit": _clean(record.get("building_coverage_limit"), mock.get("building_coverage_limit")),
+                "contents_coverage_limit": _clean(record.get("contents_coverage_limit"), mock.get("contents_coverage_limit")),
+                "broker_company": _clean(record.get("broker_company"), mock.get("broker_company")),
+                # Visual/risk fields always from mock
+                "construction_risk": mock.get("construction_risk"),
+                "state": mock.get("state"),
+                "imageUrl": mock.get("imageUrl"),
+                "roofImageUrl": mock.get("roofImageUrl"),
+            }
+            merged_records.append(merged_record)
+
+        return merged_records
+
+    except Exception as e:
+        print("Error:", e)
+        return MOCK_PROPERTIES

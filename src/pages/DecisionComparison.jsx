@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import ComparisonTable from '../components/ComparisonTable';
 import ShapDrivers from '../components/ShapDrivers';
 import { fetchProperties, fetchResults } from '../services/api';
-import { mockResults } from '../data/mockData';
+import { mockResultsNew } from '../data/mockData';
 
 const DecisionComparison = () => {
   const [properties, setProperties] = useState([]);
@@ -25,7 +25,7 @@ const DecisionComparison = () => {
         setResults(resultsData);
       } catch (error) {
         console.error('Error loading data:', error);
-        setResults(mockResults);
+        setResults(mockResultsNew);
       } finally {
         setLoading(false);
       }
@@ -33,9 +33,15 @@ const DecisionComparison = () => {
     loadData();
   }, [submissionId]);
 
-  const handleViewDetails = (propertyId) => {
-    navigate(`/property/${propertyId}`, {
-      state: { submissionId: submissionId || results?.submission_id, results },
+  const handleViewDetails = (property, decision) => {
+    const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+    const propertyLetter = property.propertyId;
+    const propertyIndex = LETTERS.indexOf(propertyLetter);
+    const propertyResult = results?.results?.[propertyIndex] ?? results?.results?.find(
+      (r) => LETTERS[r.property_index] === propertyLetter
+    );
+    navigate(`/property/${property.submission_id || property.id}`, {
+      state: { property, propertyResult, results },
     });
   };
 
@@ -50,27 +56,34 @@ const DecisionComparison = () => {
     );
   }
 
-  // Build decisions array from results for ComparisonTable compatibility
+  // Build decisions array keyed by propertyId letter (A–F) using property_index
+  // This avoids submission_id format mismatches between properties and results APIs
+  const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
   const decisions = (results?.results || []).map((r) => ({
-    propertyId: r.property_id,
+    propertyId: LETTERS[r.property_index] ?? r.submission_id,
     userSelection: r.user_selection,
     aiPrediction: {
-      risk: r.ai_risk,
+      risk: r.quote_propensity_label,
       quotePercentage: Math.round(r.quote_propensity * 100),
+      propensityLabel: r.quote_propensity_label,
     },
   }));
 
-  // Global SHAP: aggregate top drivers across all properties
-  const allShap = (results?.results || []).flatMap((r) => r.shap_values || []);
-  const shapMap = {};
-  allShap.forEach(({ feature, contribution }) => {
-    if (!shapMap[feature]) shapMap[feature] = 0;
-    shapMap[feature] += Math.abs(contribution);
-  });
-  const globalShap = Object.entries(shapMap)
-    .map(([feature, contribution]) => ({ feature, contribution: parseFloat((contribution / 6).toFixed(3)) }))
-    .sort((a, b) => b.contribution - a.contribution)
-    .slice(0, 8);
+  // Use global_shap from API if available, else aggregate
+  const globalShap = results?.global_shap
+    ? results.global_shap.map((s) => ({ feature: s.feature, contribution: s.mean_abs_shap }))
+    : (() => {
+        const allShap = (results?.results || []).flatMap((r) => r.shap_values || []);
+        const shapMap = {};
+        allShap.forEach(({ feature, mean_abs_shap, contribution }) => {
+          if (!shapMap[feature]) shapMap[feature] = 0;
+          shapMap[feature] += mean_abs_shap ?? Math.abs(contribution ?? 0);
+        });
+        return Object.entries(shapMap)
+          .map(([feature, val]) => ({ feature, contribution: parseFloat((val / 6).toFixed(3)) }))
+          .sort((a, b) => b.contribution - a.contribution)
+          .slice(0, 8);
+      })();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">

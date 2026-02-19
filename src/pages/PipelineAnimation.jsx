@@ -114,9 +114,9 @@ const riskBadge = (risk) => {
   return 'bg-green-100 text-green-700 border-green-200';
 };
 const propBadge = (cat) => {
-  if (cat === 'HIGH')   return 'bg-red-100 text-red-700 border-red-200';
+  if (cat === 'HIGH')   return 'bg-green-100 text-green-700 border-green-200';
   if (cat === 'MEDIUM') return 'bg-amber-100 text-amber-700 border-amber-200';
-  return 'bg-green-100 text-green-700 border-green-200';
+  return 'bg-red-100 text-red-700 border-red-200';
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────

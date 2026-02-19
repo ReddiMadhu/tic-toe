@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { mockProperties, mockDecisions, mockShapDrivers, mockResults } from '../data/mockData';
+import { mockProperties, mockDecisions, mockShapDrivers, mockResultsNew } from '../data/mockData';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const API_TIMEOUT = 5000;
@@ -65,6 +65,6 @@ export const fetchResults = async (submissionId) => {
     return response.data;
   } catch (error) {
     console.warn('API call failed for results, using fallback data:', error.message);
-    return mockResults;
+    return mockResultsNew;
   }
 };
