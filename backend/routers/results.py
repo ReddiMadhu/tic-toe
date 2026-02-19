@@ -7,11 +7,11 @@ router = APIRouter()
 # Real ML prediction data — fallback when DB has no process_results yet
 MOCK_PREDICTIONS = [
     {
-        "submission_id": "SUB0001",
-        "submission_channel": "Broker",
-        "property_state": "Massachusetts",
-        "occupancy_type": "Vacant",
-        "cover_type": "Contents Only",
+        "submission_id": "SUB00008",
+        "submission_channel": "Online",
+        "property_state": "CA",
+        "occupancy_type": "Rental Property",
+        "cover_type": "Both",
         "property_vulnerability_risk": 75,
         "construction_risk": 49,
         "locality_risk": 39,
@@ -24,11 +24,11 @@ MOCK_PREDICTIONS = [
         "quote_propensity": "High Propensity",
     },
     {
-        "submission_id": "SUB0002",
+        "submission_id": "SUB00012",
         "submission_channel": "Broker",
-        "property_state": "Missouri",
-        "occupancy_type": "Primary Residence",
-        "cover_type": "Contents Only",
+        "property_state": "OH",
+        "occupancy_type": "Secondary Home",
+        "cover_type": "Building Only",
         "property_vulnerability_risk": 60,
         "construction_risk": 44,
         "locality_risk": 23,
@@ -41,10 +41,10 @@ MOCK_PREDICTIONS = [
         "quote_propensity": "High Propensity",
     },
     {
-        "submission_id": "SUB0003",
-        "submission_channel": "Online",
-        "property_state": "Missouri",
-        "occupancy_type": "Rental Property",
+        "submission_id": "SUB00137",
+        "submission_channel": "Broker",
+        "property_state": "TX",
+        "occupancy_type": "Secondary Home",
         "cover_type": "Building Only",
         "property_vulnerability_risk": 85,
         "construction_risk": 45,
@@ -58,11 +58,11 @@ MOCK_PREDICTIONS = [
         "quote_propensity": "High Propensity",
     },
     {
-        "submission_id": "SUB0008",
+        "submission_id": "SUB00164",
         "submission_channel": "Online",
-        "property_state": "Texas",
+        "property_state": "MN",
         "occupancy_type": "Rental Property",
-        "cover_type": "Both",
+        "cover_type": "Contents Only",
         "property_vulnerability_risk": 95,
         "construction_risk": 39,
         "locality_risk": 43,
@@ -75,10 +75,10 @@ MOCK_PREDICTIONS = [
         "quote_propensity": "Mid Propensity",
     },
     {
-        "submission_id": "SUB0011",
+        "submission_id": "SUB07726",
         "submission_channel": "Broker",
-        "property_state": "Florida",
-        "occupancy_type": "Secondary Home",
+        "property_state": "CO",
+        "occupancy_type": "Primary Residence",
         "cover_type": "Contents Only",
         "property_vulnerability_risk": 85,
         "construction_risk": 44,
@@ -92,11 +92,11 @@ MOCK_PREDICTIONS = [
         "quote_propensity": "Mid Propensity",
     },
     {
-        "submission_id": "SUB0012",
+        "submission_id": "SUB09890",
         "submission_channel": "Broker",
-        "property_state": "Nevada",
-        "occupancy_type": "Secondary Home",
-        "cover_type": "Building Only",
+        "property_state": "FL",
+        "occupancy_type": "Primary Residence",
+        "cover_type": "Contents Only",
         "property_vulnerability_risk": 95,
         "construction_risk": 45,
         "locality_risk": 30,
@@ -132,7 +132,7 @@ MOCK_SHAP_VALUES = [
 
 # Per-property local SHAP values (A–F) — random but realistic variation
 MOCK_LOCAL_SHAP = [
-    # A — SUB00001 (High Propensity, high vulnerability)
+    # A — SUB00008 (High Propensity, high vulnerability)
     [
         {"feature": "annual_income",              "mean_abs_shap": 1.2841},
         {"feature": "building_coverage_limit",    "mean_abs_shap": 0.9103},
@@ -145,7 +145,7 @@ MOCK_LOCAL_SHAP = [
         {"feature": "construction_permit_Valid",  "mean_abs_shap": 0.2415},
         {"feature": "Local_Crime_Rate",           "mean_abs_shap": 0.1932},
     ],
-    # B — SUB00002 (High Propensity, poor roof)
+    # B — SUB00012 (High Propensity, poor roof)
     [
         {"feature": "annual_income",              "mean_abs_shap": 1.1674},
         {"feature": "cover_type_Building Only",   "mean_abs_shap": 0.8920},
@@ -158,7 +158,7 @@ MOCK_LOCAL_SHAP = [
         {"feature": "Local_Crime_Rate",           "mean_abs_shap": 0.2341},
         {"feature": "construction_permit_Valid",  "mean_abs_shap": 0.1893},
     ],
-    # C — SUB00003 (High Propensity, excellent roof)
+    # C — SUB00137 (High Propensity, excellent roof)
     [
         {"feature": "building_coverage_limit",    "mean_abs_shap": 1.0231},
         {"feature": "annual_income",              "mean_abs_shap": 0.9872},
@@ -171,7 +171,7 @@ MOCK_LOCAL_SHAP = [
         {"feature": "roof_material_Wood",         "mean_abs_shap": 0.1874},
         {"feature": "Local_Fire_Incident_Rate",   "mean_abs_shap": 0.1521},
     ],
-    # D — SUB00008 (Mid Propensity, critical roof)
+    # D — SUB00164 (Mid Propensity, critical roof)
     [
         {"feature": "total_risk_score",           "mean_abs_shap": 1.1043},
         {"feature": "Property_past_loss_freq",    "mean_abs_shap": 0.8762},
@@ -184,7 +184,7 @@ MOCK_LOCAL_SHAP = [
         {"feature": "construction_permit_Valid",  "mean_abs_shap": 0.2673},
         {"feature": "property_age",               "mean_abs_shap": 0.2241},
     ],
-    # E — SUB00011 (Mid Propensity, good roof)
+    # E — SUB07726 (Mid Propensity, good roof)
     [
         {"feature": "annual_income",              "mean_abs_shap": 0.9812},
         {"feature": "building_coverage_limit",    "mean_abs_shap": 0.8134},
@@ -197,7 +197,7 @@ MOCK_LOCAL_SHAP = [
         {"feature": "roof_material_Wood",         "mean_abs_shap": 0.2087},
         {"feature": "Local_Fire_Incident_Rate",   "mean_abs_shap": 0.1743},
     ],
-    # F — SUB00012 (Low Propensity, good roof)
+    # F — SUB09890 (Low Propensity, good roof)
     [
         {"feature": "cover_type_Building Only",   "mean_abs_shap": 0.8934},
         {"feature": "annual_income",              "mean_abs_shap": 0.7821},
@@ -218,31 +218,37 @@ MOCK_VULNERABILITY = [
         "roof_detection": {"condition": "Fair", "damage_areas": ["NW corner wear", "Flashing separation at chimney"], "material": "Asphalt Shingle", "age_estimate": "16-20 years", "confidence": 0.87},
         "proximity": {"wildfire_zone": "Moderate (2.8 mi to WUI boundary)", "hurricane_zone": "Category 1 exposure", "fault_line": "4.2 mi to nearest active fault", "flood_zone": "Zone X (minimal risk)"},
         "object_detection": {"findings": [{"label": "Roof surface wear", "confidence": 0.91, "risk": "Medium"}, {"label": "Overhanging tree", "confidence": 0.84, "risk": "Low"}], "model": "YOLOv8-property-v2"},
+        "insight_image": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop",
     },
     {
         "roof_detection": {"condition": "Poor", "damage_areas": ["Missing shingles (east section)", "Visible granule loss", "Moss growth"], "material": "Wood Shake", "age_estimate": "22-28 years", "confidence": 0.92},
         "proximity": {"wildfire_zone": "High (0.9 mi to WUI boundary)", "hurricane_zone": "Category 2-3 exposure", "fault_line": "1.8 mi to active fault", "flood_zone": "Zone AE (high risk)"},
         "object_detection": {"findings": [{"label": "Missing shingles", "confidence": 0.95, "risk": "High"}, {"label": "Dense vegetation", "confidence": 0.89, "risk": "High"}, {"label": "Cracked chimney cap", "confidence": 0.83, "risk": "Medium"}], "model": "YOLOv8-property-v2"},
+        "insight_image": "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&h=600&fit=crop",
     },
     {
         "roof_detection": {"condition": "Excellent", "damage_areas": [], "material": "Metal Standing Seam", "age_estimate": "3-6 years", "confidence": 0.96},
         "proximity": {"wildfire_zone": "Low (6.1 mi to WUI boundary)", "hurricane_zone": "Category 1 exposure (coastal setback met)", "fault_line": "12.4 mi to nearest fault", "flood_zone": "Zone X (minimal risk)"},
         "object_detection": {"findings": [{"label": "Solar panel installation", "confidence": 0.93, "risk": "Low"}, {"label": "New guttering system", "confidence": 0.88, "risk": "Low"}], "model": "YOLOv8-property-v2"},
+        "insight_image": "https://images.unsplash.com/photo-1622021142947-da7dedc7c39a?w=800&h=600&fit=crop",
     },
     {
         "roof_detection": {"condition": "Critical", "damage_areas": ["Sagging ridge line", "Multiple missing tiles", "Water staining visible"], "material": "Clay Tile", "age_estimate": "32-40 years", "confidence": 0.94},
         "proximity": {"wildfire_zone": "Very High (0.3 mi to WUI boundary)", "hurricane_zone": "Category 3-4 exposure", "fault_line": "0.9 mi to active fault", "flood_zone": "Zone A (high risk, no BFE)"},
         "object_detection": {"findings": [{"label": "Severe roof damage", "confidence": 0.97, "risk": "High"}, {"label": "Foundation cracks", "confidence": 0.88, "risk": "High"}, {"label": "Dead trees (3)", "confidence": 0.92, "risk": "High"}], "model": "YOLOv8-property-v2"},
+        "insight_image": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&h=600&fit=crop",
     },
     {
         "roof_detection": {"condition": "Good", "damage_areas": ["Minor granule loss (south slope)"], "material": "Asphalt Shingle", "age_estimate": "10-14 years", "confidence": 0.89},
         "proximity": {"wildfire_zone": "Low-Moderate (3.5 mi to WUI boundary)", "hurricane_zone": "Category 1 exposure", "fault_line": "7.2 mi to nearest fault", "flood_zone": "Zone X (minimal risk)"},
         "object_detection": {"findings": [{"label": "Minor shingle wear", "confidence": 0.86, "risk": "Low"}, {"label": "Pool proximity", "confidence": 0.91, "risk": "Low"}], "model": "YOLOv8-property-v2"},
+        "insight_image": "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800&h=600&fit=crop",
     },
     {
         "roof_detection": {"condition": "Good", "damage_areas": [], "material": "Composite Shingle", "age_estimate": "6-9 years", "confidence": 0.91},
         "proximity": {"wildfire_zone": "Low (5.2 mi to WUI boundary)", "hurricane_zone": "Category 1 exposure", "fault_line": "9.8 mi to nearest fault", "flood_zone": "Zone X (minimal risk)"},
         "object_detection": {"findings": [{"label": "Clean roof surface", "confidence": 0.94, "risk": "Low"}, {"label": "Well-maintained yard", "confidence": 0.87, "risk": "Low"}], "model": "YOLOv8-property-v2"},
+        "insight_image": "https://images.unsplash.com/photo-1449844908441-8829872d2607?w=800&h=600&fit=crop",
     },
 ]
 
@@ -393,7 +399,7 @@ def get_results(submission_id: str):
                 "cover_type": pred["cover_type"],
                 "submission_channel": pred["submission_channel"],
                 "shap_values": json.loads(row["shap_values"]) if row["shap_values"] else MOCK_SHAP_VALUES,
-                "vulnerability_data": json.loads(row["vulnerability_data"]) if row["vulnerability_data"] else MOCK_VULNERABILITY[i],
+                "vulnerability_data": {**MOCK_VULNERABILITY[i], **(json.loads(row["vulnerability_data"]) if row["vulnerability_data"] else {})},
             })
 
         # Compute score and save to DB
