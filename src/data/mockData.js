@@ -5,7 +5,7 @@ export const mockProperties = [
   {
     id: 1,
     propertyId: 'A',
-    submission_id: 'SUB00001',
+    submission_id: 'SUB0001',
     imageUrl: "https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=800&h=600&fit=crop",
     roofImageUrl: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop",
     submission_channel: "Broker",
@@ -23,7 +23,7 @@ export const mockProperties = [
   {
     id: 2,
     propertyId: 'B',
-    submission_id: 'SUB00002',
+    submission_id: 'SUB0002',
     imageUrl: "https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=800&h=600&fit=crop",
     roofImageUrl: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&h=600&fit=crop",
     submission_channel: "Direct",
@@ -41,7 +41,7 @@ export const mockProperties = [
   {
     id: 3,
     propertyId: 'C',
-    submission_id: 'SUB00003',
+    submission_id: 'SUB0003',
     imageUrl: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&h=600&fit=crop",
     roofImageUrl: "https://images.unsplash.com/photo-1622021142947-da7dedc7c39a?w=800&h=600&fit=crop",
     submission_channel: "Broker",
@@ -59,7 +59,7 @@ export const mockProperties = [
   {
     id: 4,
     propertyId: 'D',
-    submission_id: 'SUB00008',
+    submission_id: 'SUB0008',
     imageUrl: "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=800&h=600&fit=crop",
     roofImageUrl: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&h=600&fit=crop",
     submission_channel: "Broker",
@@ -77,7 +77,7 @@ export const mockProperties = [
   {
     id: 5,
     propertyId: 'E',
-    submission_id: 'SUB00011',
+    submission_id: 'SUB0011',
     imageUrl: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=600&fit=crop",
     roofImageUrl: "https://images.unsplash.com/photo-1605146769289-440113cc3d00?w=800&h=600&fit=crop",
     submission_channel: "Direct",
@@ -95,7 +95,7 @@ export const mockProperties = [
   {
     id: 6,
     propertyId: 'F',
-    submission_id: 'SUB00012',
+    submission_id: 'SUB0012',
     imageUrl: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&h=600&fit=crop",
     roofImageUrl: "https://images.unsplash.com/photo-1513584684374-8bab748fbf90?w=800&h=600&fit=crop",
     submission_channel: "Broker",
@@ -301,7 +301,7 @@ export const mockResultsNew = {
   ],
   results: [
     {
-      submission_id: 'SUB00001', property_index: 0, user_selection: null,
+      submission_id: 'SUB0001', property_index: 0, user_selection: null,
       ai_risk: 'High', quote_propensity: 0.8980314635, quote_propensity_label: 'High Propensity',
       total_risk_score: 46,
       property_vulnerability_risk: 75, construction_risk_score: 49, locality_risk: 39,
@@ -326,7 +326,7 @@ export const mockResultsNew = {
       },
     },
     {
-      submission_id: 'SUB00002', property_index: 1, user_selection: null,
+      submission_id: 'SUB0002', property_index: 1, user_selection: null,
       ai_risk: 'High', quote_propensity: 0.9307270536, quote_propensity_label: 'High Propensity',
       total_risk_score: 38,
       property_vulnerability_risk: 60, construction_risk_score: 44, locality_risk: 23,
@@ -351,7 +351,7 @@ export const mockResultsNew = {
       },
     },
     {
-      submission_id: 'SUB00003', property_index: 2, user_selection: null,
+      submission_id: 'SUB0003', property_index: 2, user_selection: null,
       ai_risk: 'High', quote_propensity: 0.8465048576, quote_propensity_label: 'High Propensity',
       total_risk_score: 45,
       property_vulnerability_risk: 85, construction_risk_score: 45, locality_risk: 18,
@@ -376,7 +376,7 @@ export const mockResultsNew = {
       },
     },
     {
-      submission_id: 'SUB00008', property_index: 3, user_selection: null,
+      submission_id: 'SUB0008', property_index: 3, user_selection: null,
       ai_risk: 'Medium', quote_propensity: 0.4319356302, quote_propensity_label: 'Mid Propensity',
       total_risk_score: 54,
       property_vulnerability_risk: 95, construction_risk_score: 39, locality_risk: 43,
@@ -401,7 +401,7 @@ export const mockResultsNew = {
       },
     },
     {
-      submission_id: 'SUB00011', property_index: 4, user_selection: null,
+      submission_id: 'SUB0011', property_index: 4, user_selection: null,
       ai_risk: 'Medium', quote_propensity: 0.4516881039, quote_propensity_label: 'Mid Propensity',
       total_risk_score: 38,
       property_vulnerability_risk: 85, construction_risk_score: 44, locality_risk: 14,
@@ -426,7 +426,7 @@ export const mockResultsNew = {
       },
     },
     {
-      submission_id: 'SUB00012', property_index: 5, user_selection: null,
+      submission_id: 'SUB0012', property_index: 5, user_selection: null,
       ai_risk: 'Low', quote_propensity: 0.0357155295, quote_propensity_label: 'Low Propensity',
       total_risk_score: 47,
       property_vulnerability_risk: 95, construction_risk_score: 45, locality_risk: 30,

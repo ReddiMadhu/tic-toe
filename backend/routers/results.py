@@ -7,7 +7,7 @@ router = APIRouter()
 # Real ML prediction data — fallback when DB has no process_results yet
 MOCK_PREDICTIONS = [
     {
-        "submission_id": "SUB00001",
+        "submission_id": "SUB0001",
         "submission_channel": "Broker",
         "property_state": "Massachusetts",
         "occupancy_type": "Vacant",
@@ -24,7 +24,7 @@ MOCK_PREDICTIONS = [
         "quote_propensity": "High Propensity",
     },
     {
-        "submission_id": "SUB00002",
+        "submission_id": "SUB0002",
         "submission_channel": "Broker",
         "property_state": "Missouri",
         "occupancy_type": "Primary Residence",
@@ -41,7 +41,7 @@ MOCK_PREDICTIONS = [
         "quote_propensity": "High Propensity",
     },
     {
-        "submission_id": "SUB00003",
+        "submission_id": "SUB0003",
         "submission_channel": "Online",
         "property_state": "Missouri",
         "occupancy_type": "Rental Property",
@@ -58,7 +58,7 @@ MOCK_PREDICTIONS = [
         "quote_propensity": "High Propensity",
     },
     {
-        "submission_id": "SUB00008",
+        "submission_id": "SUB0008",
         "submission_channel": "Online",
         "property_state": "Texas",
         "occupancy_type": "Rental Property",
@@ -75,7 +75,7 @@ MOCK_PREDICTIONS = [
         "quote_propensity": "Mid Propensity",
     },
     {
-        "submission_id": "SUB00011",
+        "submission_id": "SUB0011",
         "submission_channel": "Broker",
         "property_state": "Florida",
         "occupancy_type": "Secondary Home",
@@ -92,7 +92,7 @@ MOCK_PREDICTIONS = [
         "quote_propensity": "Mid Propensity",
     },
     {
-        "submission_id": "SUB00012",
+        "submission_id": "SUB0012",
         "submission_channel": "Broker",
         "property_state": "Nevada",
         "occupancy_type": "Secondary Home",
@@ -109,6 +109,12 @@ MOCK_PREDICTIONS = [
         "quote_propensity": "Low Propensity",
     },
 ]
+
+# Map integer property_id (1-6) to submission_id string ("SUB0001" etc.)
+PROPERTY_ID_TO_SUBMISSION = {
+    i + 1: MOCK_PREDICTIONS[i]["submission_id"]
+    for i in range(len(MOCK_PREDICTIONS))
+}
 
 # Global SHAP — aggregate importance across all properties
 MOCK_SHAP_VALUES = [
@@ -285,12 +291,47 @@ def _build_mock_results(submission_id, underwriter_name="Demo User", prioritized
             "vulnerability_data": MOCK_VULNERABILITY[i],
         })
 
+    # Compute score inline (can't call _compute_score here as it's defined below)
+    points = 0.0
+    for r in results:
+        label = (r.get("quote_propensity_label") or "").lower()
+        sel = r.get("user_selection")
+        tier = "High" if "high" in label else "Mid" if "mid" in label else "Low"
+        if sel == "prioritized":
+            if tier == "High": points += 1.0
+            elif tier == "Mid": points += 0.5
+        elif sel == "discarded":
+            if tier == "Low": points += 1.0
+            elif tier == "Mid": points += 0.5
+    score_pct = round((points / 6.0) * 100, 1)
+
     return {
         "submission_id": submission_id,
         "underwriter_name": underwriter_name,
+        "score_percentage": score_pct,
         "results": results,
         "global_shap": MOCK_SHAP_VALUES,
     }
+
+
+def _compute_score(results_list: list) -> float:
+    """Compute alignment score from results list (user_selection vs quote_propensity_label)."""
+    points = 0.0
+    for r in results_list:
+        label = (r.get("quote_propensity_label") or "").lower()
+        sel = r.get("user_selection")
+        tier = "High" if "high" in label else "Mid" if "mid" in label else "Low"
+        if sel == "prioritized":
+            if tier == "High":
+                points += 1.0
+            elif tier == "Mid":
+                points += 0.5
+        elif sel == "discarded":
+            if tier == "Low":
+                points += 1.0
+            elif tier == "Mid":
+                points += 0.5
+    return points
 
 
 @router.get("/{submission_id}")
@@ -325,10 +366,11 @@ def get_results(submission_id: str):
         results = []
         for i, row in enumerate(rows):
             pid = row["property_id"]
+            submission_id_str = PROPERTY_ID_TO_SUBMISSION.get(pid, str(pid))
             user_selection = None
-            if pid in prioritized_ids:
+            if submission_id_str in prioritized_ids:
                 user_selection = "prioritized"
-            elif pid in discarded_ids:
+            elif submission_id_str in discarded_ids:
                 user_selection = "discarded"
 
             pred = MOCK_PREDICTIONS[i % len(MOCK_PREDICTIONS)]
@@ -354,9 +396,19 @@ def get_results(submission_id: str):
                 "vulnerability_data": json.loads(row["vulnerability_data"]) if row["vulnerability_data"] else MOCK_VULNERABILITY[i],
             })
 
+        # Compute score and save to DB
+        points = _compute_score(results)
+        score_pct = round((points / 6.0) * 100, 1)
+        cursor.execute(
+            "UPDATE submissions SET score = ? WHERE id = ?",
+            (score_pct, submission_id)
+        )
+        conn.commit()
+
         return {
             "submission_id": submission_id,
             "underwriter_name": submission["underwriter_name"],
+            "score_percentage": score_pct,
             "results": results,
             "global_shap": MOCK_SHAP_VALUES,
         }

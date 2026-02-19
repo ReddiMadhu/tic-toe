@@ -35,8 +35,14 @@ const UnderwriterDecision = () => {
     setError('');
   };
 
-  const prioritized = Object.entries(selections).filter(([, v]) => v === 'prioritized').map(([k]) => Number(k));
-  const discarded   = Object.entries(selections).filter(([, v]) => v === 'discarded').map(([k]) => Number(k));
+  const prioritized = Object.entries(selections)
+    .filter(([, v]) => v === 'prioritized')
+    .map(([k]) => properties.find((p) => String(p.id) === k)?.submission_id)
+    .filter(Boolean);
+  const discarded = Object.entries(selections)
+    .filter(([, v]) => v === 'discarded')
+    .map(([k]) => properties.find((p) => String(p.id) === k)?.submission_id)
+    .filter(Boolean);
 
   const canSubmit =
     prioritized.length >= 1 &&
@@ -221,7 +227,7 @@ const UnderwriterDecision = () => {
                 <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Prioritized</span>
                 <div className="flex gap-1.5 mt-1">
                   {prioritized.map((id) => {
-                    const p = properties.find((x) => x.id === id);
+                    const p = properties.find((x) => x.submission_id === id);
                     return (
                       <span key={id} className="bg-green-100 text-green-700 font-bold text-xs px-2 py-0.5 rounded">
                         {p?.propertyId}
@@ -236,7 +242,7 @@ const UnderwriterDecision = () => {
                 <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Discarded</span>
                 <div className="flex gap-1.5 mt-1">
                   {discarded.map((id) => {
-                    const p = properties.find((x) => x.id === id);
+                    const p = properties.find((x) => x.submission_id === id);
                     return (
                       <span key={id} className="bg-red-100 text-red-600 font-bold text-xs px-2 py-0.5 rounded">
                         {p?.propertyId}

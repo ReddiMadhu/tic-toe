@@ -68,3 +68,13 @@ export const fetchResults = async (submissionId) => {
     return mockResultsNew;
   }
 };
+
+export const fetchLeaderboard = async () => {
+  try {
+    const response = await api.get('/api/leaderboard');
+    return response.data;
+  } catch (error) {
+    console.warn('Leaderboard fetch failed:', error.message);
+    return [];
+  }
+};

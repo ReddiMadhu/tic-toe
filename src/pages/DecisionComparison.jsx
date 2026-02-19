@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import ComparisonTable from '../components/ComparisonTable';
 import ShapDrivers from '../components/ShapDrivers';
@@ -9,6 +10,10 @@ const DecisionComparison = () => {
   const [properties, setProperties] = useState([]);
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [scorePercent, setScorePercent] = useState(0);
+  const [showInfo, setShowInfo] = useState(false);
+  const infoRef = useRef(null);
+  const btnRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
   const submissionId = location.state?.submissionId;
@@ -23,6 +28,7 @@ const DecisionComparison = () => {
         ]);
         setProperties(propertiesData);
         setResults(resultsData);
+        setScorePercent(resultsData?.score_percentage ?? 0);
       } catch (error) {
         console.error('Error loading data:', error);
         setResults(mockResultsNew);
@@ -32,6 +38,21 @@ const DecisionComparison = () => {
     };
     loadData();
   }, [submissionId]);
+
+  // Close tooltip when clicking outside
+  useEffect(() => {
+    if (!showInfo) return;
+    const handler = (e) => {
+      if (
+        btnRef.current && !btnRef.current.contains(e.target) &&
+        infoRef.current && !infoRef.current.contains(e.target)
+      ) {
+        setShowInfo(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showInfo]);
 
   const handleViewDetails = (property, decision) => {
     const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
@@ -89,25 +110,101 @@ const DecisionComparison = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-start gap-3">
-          <button
-            onClick={() => navigate('/')}
-            title="Home"
-            className="text-gray-400 hover:text-blue-600 transition-colors mt-1 flex-shrink-0"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Underwriter vs AI – Decision Comparison
-            </h1>
-            <p className="mt-1 text-sm text-gray-600">
-              {results?.underwriter_name
-                ? `Reviewing ${results.underwriter_name}'s selections against AI risk predictions.`
-                : 'Review how your selections compare with AI risk predictions.'}
-            </p>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/')}
+              title="Home"
+              className="text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+            </button>
+            <h1 className="text-xl font-bold text-gray-900">Underwriter vs AI – Decision Comparison</h1>
+          </div>
+
+          {/* Score display + info icon + Leaderboard link */}
+          <div className="flex items-center gap-4 flex-shrink-0">
+            <div className="text-right">
+              <div className="flex items-center gap-1.5 justify-end">
+                <span className="text-sm font-medium text-gray-500">Your Score</span>
+                <span className="text-2xl font-extrabold text-gray-900">{scorePercent}%</span>
+                {/* Info icon */}
+                <div className="relative">
+                  <button
+                    ref={btnRef}
+                    onClick={() => setShowInfo((v) => !v)}
+                    className="w-5 h-5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-700 flex items-center justify-center transition-colors text-xs font-bold"
+                    title="How is the score calculated?"
+                  >
+                    i
+                  </button>
+                  {showInfo && createPortal(
+                    <div
+                      ref={infoRef}
+                      className="w-72 bg-white border border-gray-200 rounded-xl shadow-xl p-4 text-left"
+                      style={{
+                        position: 'fixed',
+                        zIndex: 9999,
+                        top: btnRef.current ? btnRef.current.getBoundingClientRect().bottom + 8 : 60,
+                        left: btnRef.current
+                          ? Math.min(
+                              btnRef.current.getBoundingClientRect().right - 288,
+                              window.innerWidth - 296
+                            )
+                          : 'auto',
+                      }}
+                    >
+                      <p className="text-xs font-bold text-gray-700 mb-2">How your score is calculated</p>
+                      <p className="text-xs text-gray-500 mb-3">For each of the 6 properties:</p>
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr className="text-gray-500">
+                            <th className="text-left pb-1 font-semibold">Your choice</th>
+                            <th className="text-center pb-1 font-semibold">AI: High</th>
+                            <th className="text-center pb-1 font-semibold">AI: Mid</th>
+                            <th className="text-center pb-1 font-semibold">AI: Low</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          <tr>
+                            <td className="py-1 text-green-700 font-medium">Prioritized</td>
+                            <td className="text-center py-1 font-bold text-green-600">+1</td>
+                            <td className="text-center py-1 font-bold text-amber-600">+0.5</td>
+                            <td className="text-center py-1 text-gray-400">0</td>
+                          </tr>
+                          <tr>
+                            <td className="py-1 text-red-600 font-medium">Discarded</td>
+                            <td className="text-center py-1 text-gray-400">0</td>
+                            <td className="text-center py-1 font-bold text-amber-600">+0.5</td>
+                            <td className="text-center py-1 font-bold text-green-600">+1</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      <p className="text-xs text-gray-400 mt-3">Max score = 6 points → shown as %</p>
+                    </div>,
+                    document.body
+                  )}
+                </div>
+              </div>
+              <div className="w-40 h-2 bg-gray-200 rounded-full mt-1 overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-700 bg-gray-800"
+                  style={{ width: `${scorePercent}%` }}
+                />
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/leaderboard')}
+              className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-800 border border-blue-200 hover:border-blue-400 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              Leaderboard
+            </button>
           </div>
         </div>
       </div>

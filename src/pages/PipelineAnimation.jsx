@@ -1,35 +1,37 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { mockProperties, mockResults } from '../data/mockData';
+import { fetchProperties, fetchResults } from '../services/api';
 
-// ─── Per-property stream data (from mockData) ───────────────────────────────
-const PROPERTIES_STREAM = mockResults.results.map((r, i) => {
-  const prop = mockProperties.find((p) => p.id === r.property_id) || mockProperties[i];
-  const findings = (r.vulnerability_data?.object_detection?.findings || [])
-    .map((f) => `${f.label} · ${f.risk}`)
-    .join('  ·  ') || 'No findings';
-  const wildfire = r.vulnerability_data?.proximity?.wildfire_zone || '—';
-  const flood    = r.vulnerability_data?.proximity?.flood_zone    || '—';
-  const propPct  = Math.round(r.quote_propensity * 100);
-  const category = propPct >= 70 ? 'HIGH' : propPct >= 40 ? 'MEDIUM' : 'LOW';
-  return {
-    id: prop.propertyId,
-    imageUrl: prop.imageUrl,
-    county: prop.property_county,
-    occupancy: prop.occupancy_type,
-    age: prop.property_age,
-    roofCondition: r.vulnerability_data?.roof_detection?.condition || '—',
-    roofMaterial:  r.vulnerability_data?.roof_detection?.material  || '—',
-    wildfire,
-    flood,
-    findings,
-    riskScore: r.total_risk_score,
-    aiRisk: r.ai_risk,
-    propensity: r.quote_propensity,
-    propensityPct: `${propPct}%`,
-    propensityCategory: category,
-  };
-});
+// ─── Build per-property stream data from API responses ───────────────────────
+function buildPropertiesStream(resultsData, propertiesData) {
+  return (resultsData?.results || []).map((r, i) => {
+    const prop = propertiesData.find((p) => p.id === r.property_id) || propertiesData[i] || {};
+    const findings = (r.vulnerability_data?.object_detection?.findings || [])
+      .map((f) => `${f.label} · ${f.risk}`)
+      .join('  ·  ') || 'No findings';
+    const wildfire = r.vulnerability_data?.proximity?.wildfire_zone || '—';
+    const flood    = r.vulnerability_data?.proximity?.flood_zone    || '—';
+    const propPct  = Math.round(r.quote_propensity * 100);
+    const category = propPct >= 70 ? 'HIGH' : propPct >= 40 ? 'MEDIUM' : 'LOW';
+    return {
+      id: prop.propertyId || String.fromCharCode(65 + i),
+      imageUrl: prop.imageUrl,
+      county: prop.property_county || '—',
+      occupancy: prop.occupancy_type || '—',
+      age: prop.property_age || '—',
+      roofCondition: r.vulnerability_data?.roof_detection?.condition || '—',
+      roofMaterial:  r.vulnerability_data?.roof_detection?.material  || '—',
+      wildfire,
+      flood,
+      findings,
+      riskScore: r.total_risk_score,
+      aiRisk: r.ai_risk,
+      propensity: r.quote_propensity,
+      propensityPct: `${propPct}%`,
+      propensityCategory: category,
+    };
+  });
+}
 
 // ─── Phase 1 — Property Insights (5 steps) ───────────────────────────────────
 const PHASE1_STEPS = [
@@ -126,6 +128,9 @@ const PipelineAnimation = () => {
   const submissionId = location.state?.submissionId;
   const logRef      = useRef(null);
 
+  const [propertiesStream, setPropertiesStream] = useState([]);
+  const [dataReady, setDataReady] = useState(false);
+
   const [phase, setPhase]           = useState(1);
   const [progress, setProgress]     = useState(0);
   const [done, setDone]             = useState(false);
@@ -136,19 +141,45 @@ const PipelineAnimation = () => {
   const [activePropIdx, setActivePropIdx] = useState(0);
 
   // Per-property status: { p1Steps: [], p2Steps: [], p1Done, p2Done }
-  const [propStatuses, setPropStatuses] = useState(
-    PROPERTIES_STREAM.map(() => ({ p1Steps: [], p2Steps: [], p1Done: false, p2Done: false }))
-  );
+  const [propStatuses, setPropStatuses] = useState([]);
 
   // Currently visible step list in the main feed
   const [feedPropIdx, setFeedPropIdx]   = useState(0);
   const [feedPhase, setFeedPhase]       = useState(1);
   const [feedSteps, setFeedSteps]       = useState([]); // array of { stepId, inputText, outputText }
 
-  const totalStepsAll = PROPERTIES_STREAM.length * (PHASE1_STEPS.length + PHASE2_STEPS.length);
-  const stepsPerProp1 = PHASE1_STEPS.length;
-  const stepsPerProp2 = PHASE2_STEPS.length;
-  const totalP1Steps  = PROPERTIES_STREAM.length * stepsPerProp1;
+  // Fetch API data first, then start animation
+  useEffect(() => {
+    const loadAndStart = async () => {
+      try {
+        const [propertiesData, resultsData] = await Promise.all([
+          fetchProperties(),
+          fetchResults(submissionId || 1),
+        ]);
+        const stream = buildPropertiesStream(resultsData, propertiesData);
+        setPropertiesStream(stream);
+        setPropStatuses(stream.map(() => ({ p1Steps: [], p2Steps: [], p1Done: false, p2Done: false })));
+        setDataReady(true);
+      } catch (err) {
+        console.warn('Failed to load pipeline data, retrying with id 1', err);
+        try {
+          const [propertiesData, resultsData] = await Promise.all([
+            fetchProperties(),
+            fetchResults(1),
+          ]);
+          const stream = buildPropertiesStream(resultsData, propertiesData);
+          setPropertiesStream(stream);
+          setPropStatuses(stream.map(() => ({ p1Steps: [], p2Steps: [], p1Done: false, p2Done: false })));
+          setDataReady(true);
+        } catch (err2) {
+          console.error('Pipeline data load failed:', err2);
+          setDataReady(true); // proceed with empty stream
+        }
+      }
+    };
+    loadAndStart();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto-scroll log
   useEffect(() => {
@@ -157,14 +188,17 @@ const PipelineAnimation = () => {
 
   // ── Main animation driver ────────────────────────────────────────────────
   useEffect(() => {
+    if (!dataReady || propertiesStream.length === 0) return;
+
     let stepsCompleted = 0;
+    const totalStepsAll = propertiesStream.length * (PHASE1_STEPS.length + PHASE2_STEPS.length);
 
     const addLog = (msg) => setLogLines((prev) => [...prev, msg]);
 
     const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
     const runProperty = async (pi, isPhase2) => {
-      const prop  = PROPERTIES_STREAM[pi];
+      const prop  = propertiesStream[pi];
       const steps = isPhase2 ? PHASE2_STEPS : PHASE1_STEPS;
 
       setActivePropIdx(pi);
@@ -221,9 +255,9 @@ const PipelineAnimation = () => {
     const run = async () => {
       await sleep(350);
 
-      // Phase 1 — all 6 properties
+      // Phase 1 — all properties
       setPhase(1);
-      for (let pi = 0; pi < PROPERTIES_STREAM.length; pi++) {
+      for (let pi = 0; pi < propertiesStream.length; pi++) {
         await runProperty(pi, false);
       }
 
@@ -231,10 +265,10 @@ const PipelineAnimation = () => {
       setCurrentDetail('Phase 1 complete — starting Quote Propensity Model…');
       await sleep(600);
 
-      // Phase 2 — all 6 properties
+      // Phase 2 — all properties
       setPhase(2);
       setFeedSteps([]);
-      for (let pi = 0; pi < PROPERTIES_STREAM.length; pi++) {
+      for (let pi = 0; pi < propertiesStream.length; pi++) {
         await runProperty(pi, true);
       }
 
@@ -247,11 +281,22 @@ const PipelineAnimation = () => {
 
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [dataReady]);
 
   // ── JSX ──────────────────────────────────────────────────────────────────
-  const currentFeedProp = PROPERTIES_STREAM[feedPropIdx];
+  const currentFeedProp = propertiesStream[feedPropIdx];
   const allPhaseSteps   = feedPhase === 1 ? PHASE1_STEPS : PHASE2_STEPS;
+
+  if (!dataReady) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Preparing AI pipeline…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
@@ -325,7 +370,7 @@ const PipelineAnimation = () => {
       {/* ── 6 Property thumbnail strip ── */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
         <div className="grid grid-cols-6 gap-2">
-          {PROPERTIES_STREAM.map((prop, pi) => {
+          {propertiesStream.map((prop, pi) => {
             const status  = propStatuses[pi];
             const isActive = pi === activePropIdx;
             return (

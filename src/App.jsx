@@ -7,6 +7,7 @@ import ResponseReceived from './pages/ResponseReceived';
 import PipelineAnimation from './pages/PipelineAnimation';
 import DecisionComparison from './pages/DecisionComparison';
 import PropertyDetail from './pages/PropertyDetail';
+import Leaderboard from './pages/Leaderboard';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
         <Route path="/processing"        element={<PipelineAnimation />} />
         <Route path="/comparison"        element={<DecisionComparison />} />
         <Route path="/property/:id"      element={<PropertyDetail />} />
+        <Route path="/leaderboard"       element={<Leaderboard />} />
       </Routes>
     </Router>
   );

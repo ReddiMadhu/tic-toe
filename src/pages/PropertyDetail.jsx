@@ -3,20 +3,6 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { mockProperties, mockResultsNew } from '../data/mockData';
 
 
-const CONDITION_COLORS = {
-  Excellent: 'text-green-600',
-  Good:      'text-green-500',
-  Fair:      'text-amber-500',
-  Poor:      'text-red-500',
-  Critical:  'text-red-700 font-bold',
-};
-
-const FINDING_RISK_COLORS = {
-  Low:    'bg-green-100 text-green-700',
-  Medium: 'bg-amber-100 text-amber-700',
-  High:   'bg-red-100 text-red-700',
-};
-
 const formatCurrency = (value) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
 
@@ -34,30 +20,20 @@ const SectionBar = ({ title, right }) => (
   </div>
 );
 
-// Vulnerability Popup — compact list style matching screenshot
-const VulnerabilityPopup = ({ data, onClose }) => {
+// Vulnerability Popup — shows insight image, or opens link in new tab
+const VulnerabilityPopup = ({ data, onClose, insightImage, link }) => {
   if (!data) return null;
-  const { roof_detection, proximity, object_detection } = data;
 
-  const wildfireEntries = Object.entries(proximity || {}).filter(([k]) =>
-    k.toLowerCase().includes('wildfire') || k.toLowerCase().includes('fire')
-  );
-  const hurricaneEntries = Object.entries(proximity || {}).filter(([k]) =>
-    k.toLowerCase().includes('hurricane') || k.toLowerCase().includes('storm') ||
-    k.toLowerCase().includes('wind') || k.toLowerCase().includes('flood')
-  );
-  // fallback: split evenly if no keyword match
-  const allProx = Object.entries(proximity || {});
-  const wfList = wildfireEntries.length ? wildfireEntries : allProx.slice(0, Math.ceil(allProx.length / 2));
-  const hList  = hurricaneEntries.length ? hurricaneEntries : allProx.slice(Math.ceil(allProx.length / 2));
-
-  const detectionSummary = object_detection?.findings
-    ?.map(f => f.label)
-    .join(', ') || '—';
+  // If there's a link, open it in a new tab and close the popup
+  if (link) {
+    window.open(link, '_blank', 'noopener,noreferrer');
+    onClose();
+    return null;
+  }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl w-80 max-h-[80vh] overflow-y-auto border border-gray-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl border border-gray-200" style={{ width: '70vw', maxWidth: '70vw' }} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
           <span className="text-sm font-bold text-gray-900">Property Vulnerability Risk</span>
@@ -68,74 +44,12 @@ const VulnerabilityPopup = ({ data, onClose }) => {
           </button>
         </div>
 
-        {/* List items */}
-        <div className="divide-y divide-gray-100">
-          {/* Roof detection */}
-          {roof_detection && (
-            <div className="flex items-start gap-3 px-4 py-3">
-              <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-800">Roof detection results</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Roof Condition: {roof_detection.condition}, {roof_detection.material}
-                  {roof_detection.damage_areas?.length > 0 && ` · Damage: ${roof_detection.damage_areas.join(', ')}`}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Wildfire */}
-          <div className="flex items-start gap-3 px-4 py-3">
-            <div className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <svg className="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-800">Proximity to wildfire zone</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {wfList.map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`).join(' · ') || '—'}
-              </p>
-            </div>
-          </div>
-
-          {/* Hurricane */}
-          <div className="flex items-start gap-3 px-4 py-3">
-            <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <svg className="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-800">Hurricane exposure</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {hList.map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`).join(' · ') || '—'}
-              </p>
-            </div>
-          </div>
-
-          {/* Object detection */}
-          {object_detection && (
-            <div className="flex items-start gap-3 px-4 py-3">
-              <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-800">Object detection findings</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Object Detection: {detectionSummary}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
+        {/* Insight image */}
+        {insightImage ? (
+          <img src={insightImage} alt="Vulnerability insight" className="w-full rounded-b-xl object-cover" style={{ maxHeight: '70vh' }} />
+        ) : (
+          <div className="px-4 py-8 text-center text-gray-400 text-sm">No insight image available.</div>
+        )}
       </div>
     </div>
   );
@@ -247,6 +161,8 @@ const PropertyDetail = () => {
         <VulnerabilityPopup
           data={vulnerability_data}
           onClose={() => setShowVulnerabilityPopup(false)}
+          insightImage={vulnerability_data?.insight_image || property.roofImageUrl}
+          link={vulnerability_data?.link}
         />
       )}
 

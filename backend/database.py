@@ -37,4 +37,12 @@ def init_db():
     """)
 
     conn.commit()
+
+    # Idempotent migration: add score column if it doesn't exist
+    try:
+        cursor.execute("ALTER TABLE submissions ADD COLUMN score REAL DEFAULT NULL")
+        conn.commit()
+    except Exception:
+        pass  # column already exists
+
     conn.close()

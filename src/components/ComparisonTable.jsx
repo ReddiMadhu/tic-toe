@@ -1,16 +1,7 @@
 import React from 'react';
 import Badge from './Badge';
 
-/**
- * ComparisonTable component - displays property comparison with user selections and AI predictions
- *
- * @param {Object} props
- * @param {Array} props.properties - Array of property objects
- * @param {Array} props.decisions - Array of decision objects with user selections and AI predictions
- * @param {Function} props.onViewDetails - Handler for "View Details" button click
- */
 const ComparisonTable = ({ properties, decisions, onViewDetails }) => {
-  // Format currency
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -20,9 +11,16 @@ const ComparisonTable = ({ properties, decisions, onViewDetails }) => {
     }).format(value);
   };
 
-  // Get decision for a property — match by submission_id string
   const getDecision = (propertyId) => {
     return decisions.find(d => d.propertyId === propertyId);
+  };
+
+  const isMismatch = (userSelection, aiPrediction) => {
+    if (!userSelection || !aiPrediction) return false;
+    const risk = (aiPrediction.risk || '').toLowerCase();
+    if (userSelection === 'prioritized' && risk.includes('low')) return true;
+    if (userSelection === 'discarded' && risk.includes('high')) return true;
+    return false;
   };
 
   return (
@@ -39,14 +37,14 @@ const ComparisonTable = ({ properties, decisions, onViewDetails }) => {
           </thead>
           <tbody className="divide-y divide-gray-200">
             {properties.map((property) => {
-              // Match decision by propertyId letter (A–F) — avoids submission_id format mismatches
               const decision = getDecision(property.propertyId);
               const userSelection = decision?.userSelection;
               const aiPrediction = decision?.aiPrediction;
+              const wrong = isMismatch(userSelection, aiPrediction);
 
               return (
                 <tr key={property.submission_id || property.id} className="hover:bg-gray-50 transition-colors">
-                  {/* Property Column - Thumbnail + Key Metadata */}
+                  {/* Property Column */}
                   <td className="px-3 pt-1 pb-2">
                     <div className="flex items-center space-x-4">
                       <div className="relative">
@@ -55,7 +53,6 @@ const ComparisonTable = ({ properties, decisions, onViewDetails }) => {
                           alt={property.property_county}
                           className="w-20 h-20 rounded-lg object-cover shadow-sm"
                         />
-                        {/* Property ID Badge */}
                         <div className="absolute -top-2 -left-2 bg-blue-600 text-white font-bold text-xs px-2 py-0.5 rounded shadow-md">
                           {property.propertyId}
                         </div>
@@ -101,7 +98,11 @@ const ComparisonTable = ({ properties, decisions, onViewDetails }) => {
                   <td className="px-3 pt-1 pb-2">
                     <button
                       onClick={() => onViewDetails(property, decision)}
-                      className="px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors inline-flex items-center gap-1.5"
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors inline-flex items-center gap-1.5 ${
+                        wrong
+                          ? 'border border-red-500 text-red-600 hover:bg-red-50'
+                          : 'border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
+                      }`}
                     >
                       View Details
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -120,3 +121,4 @@ const ComparisonTable = ({ properties, decisions, onViewDetails }) => {
 };
 
 export default ComparisonTable;
+

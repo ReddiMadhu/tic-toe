@@ -34,10 +34,10 @@ const ResponseReceived = () => {
   }
 
   const prioritizedProps = properties.filter((p) =>
-    submission.prioritized_ids?.includes(p.id)
+    submission.prioritized_ids?.includes(p.submission_id)
   );
   const discardedProps = properties.filter((p) =>
-    submission.discarded_ids?.includes(p.id)
+    submission.discarded_ids?.includes(p.submission_id)
   );
 
   const handleActivate = async () => {

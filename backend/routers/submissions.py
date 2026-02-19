@@ -9,8 +9,8 @@ router = APIRouter()
 
 class SubmissionPayload(BaseModel):
     underwriter_name: str
-    prioritized_ids: List[int]
-    discarded_ids: List[int]
+    prioritized_ids: List[str]
+    discarded_ids: List[str]
 
 
 @router.post("")

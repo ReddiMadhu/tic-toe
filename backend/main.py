@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import init_db
-from routers import properties, submissions, process, results
+from routers import properties, submissions, process, results, leaderboard
 
 app = FastAPI(title="Underwriting Intelligence API", version="1.0.0")
 
@@ -24,6 +24,7 @@ app.include_router(properties.router,   prefix="/api/properties",  tags=["proper
 app.include_router(submissions.router,  prefix="/api/submissions", tags=["submissions"])
 app.include_router(process.router,      prefix="/api/process",     tags=["process"])
 app.include_router(results.router,      prefix="/api/results",     tags=["results"])
+app.include_router(leaderboard.router,  prefix="/api/leaderboard", tags=["leaderboard"])
 
 
 @app.get("/")
