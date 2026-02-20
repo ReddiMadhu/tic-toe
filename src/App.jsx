@@ -8,6 +8,7 @@ import PipelineAnimation from './pages/PipelineAnimation';
 import DecisionComparison from './pages/DecisionComparison';
 import PropertyDetail from './pages/PropertyDetail';
 import Leaderboard from './pages/Leaderboard';
+import TriagePage from './pages/TriagePage';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
         <Route path="/comparison"        element={<DecisionComparison />} />
         <Route path="/property/:id"      element={<PropertyDetail />} />
         <Route path="/leaderboard"       element={<Leaderboard />} />
+        <Route path="/triage"            element={<TriagePage />} />
       </Routes>
     </Router>
   );

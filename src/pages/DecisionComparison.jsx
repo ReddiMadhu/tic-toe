@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import ComparisonTable from '../components/ComparisonTable';
 import ShapDrivers from '../components/ShapDrivers';
-import { fetchProperties, fetchResults } from '../services/api';
+import { fetchProperties, fetchResults, sendTriageEmails } from '../services/api';
 import { mockResultsNew } from '../data/mockData';
 
 const DecisionComparison = () => {
@@ -12,6 +12,8 @@ const DecisionComparison = () => {
   const [loading, setLoading] = useState(true);
   const [scorePercent, setScorePercent] = useState(0);
   const [showInfo, setShowInfo] = useState(false);
+  const [triageLoading, setTriageLoading] = useState(false);
+  const [triageStatus, setTriageStatus] = useState(null); // null | 'sent' | 'error'
   const infoRef = useRef(null);
   const btnRef = useRef(null);
   const navigate = useNavigate();
@@ -55,7 +57,6 @@ const DecisionComparison = () => {
   }, [showInfo]);
 
   const handleViewDetails = (property, decision) => {
-    const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
     const propertyLetter = property.propertyId;
     const propertyIndex = LETTERS.indexOf(propertyLetter);
     const propertyResult = results?.results?.[propertyIndex] ?? results?.results?.find(
@@ -64,6 +65,21 @@ const DecisionComparison = () => {
     navigate(`/property/${property.submission_id || property.id}`, {
       state: { property, propertyResult, results },
     });
+  };
+
+  const handleSmartAssign = async () => {
+    setTriageLoading(true);
+    setTriageStatus(null);
+    try {
+      await sendTriageEmails(submissionId);
+      setTriageStatus('sent');
+    } catch (err) {
+      console.error('Smart Assign error:', err?.response?.data ?? err?.message ?? err);
+      setTriageStatus('error');
+    } finally {
+      setTriageLoading(false);
+      setTimeout(() => setTriageStatus(null), 4000);
+    }
   };
 
   if (loading) {
@@ -205,6 +221,36 @@ const DecisionComparison = () => {
               </svg>
               Leaderboard
             </button>
+            <div className="relative">
+              <button
+                onClick={handleSmartAssign}
+                disabled={triageLoading}
+                className="flex items-center gap-1.5 text-sm font-semibold text-gray-700 hover:text-gray-900 border border-gray-300 hover:border-gray-400 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {triageLoading ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                )}
+                Smart Assign to UWT
+              </button>
+              {triageStatus === 'sent' && (
+                <div className="absolute top-full right-0 mt-1.5 w-52 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium rounded-lg px-3 py-2 shadow-md z-50 whitespace-nowrap">
+                  Emails sent to all UWT teams
+                </div>
+              )}
+              {triageStatus === 'error' && (
+                <div className="absolute top-full right-0 mt-1.5 w-52 bg-red-50 border border-red-200 text-red-700 text-xs font-medium rounded-lg px-3 py-2 shadow-md z-50">
+                  Failed to send — check SMTP config
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

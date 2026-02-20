@@ -78,3 +78,8 @@ export const fetchLeaderboard = async () => {
     return [];
   }
 };
+
+export const sendTriageEmails = async (submissionId) => {
+  const response = await api.post('/api/triage/send-emails', { submissionId }, { timeout: 30000 });
+  return response.data;
+};
