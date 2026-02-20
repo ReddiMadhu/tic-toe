@@ -3,10 +3,11 @@ import smtplib
 from datetime import date
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from routers.properties import get_properties
+from routers.results import MOCK_PREDICTIONS, MOCK_LOCAL_SHAP, MOCK_VULNERABILITY
 
 router = APIRouter()
 
@@ -207,3 +208,44 @@ def send_letter(request: LetterRequest):
         return {"status": "error", "reason": str(exc)}
 
     return {"status": "sent"}
+
+
+@router.get("/property/{submission_id}")
+def get_property_result(submission_id: str):
+    """Return full property result data for a given submission_id string (e.g. 'SUB0001').
+    Maps the submission_id to its position index via live properties list, then returns
+    the corresponding MOCK_PREDICTIONS, MOCK_LOCAL_SHAP, and MOCK_VULNERABILITY data.
+    """
+    properties = get_properties()
+    # Find position index of this submission_id in the live properties list
+    prop_index = None
+    for i, prop in enumerate(properties[:6]):
+        if prop.get("submission_id") == submission_id:
+            prop_index = i
+            break
+
+    if prop_index is None:
+        raise HTTPException(status_code=404, detail=f"Property '{submission_id}' not found")
+
+    pred = MOCK_PREDICTIONS[prop_index]
+    return {
+        "submission_id": submission_id,
+        "property_index": prop_index,
+        "quote_propensity": pred["quote_propensity_probability"],
+        "quote_propensity_label": pred["quote_propensity"],
+        "total_risk_score": pred["total_risk_score"],
+        "property_vulnerability_risk": pred["property_vulnerability_risk"],
+        "construction_risk_score": pred["construction_risk"],
+        "locality_risk": pred["locality_risk"],
+        "coverage_risk": pred["coverage_risk"],
+        "claim_history_risk": pred["claim_history_risk"],
+        "property_condition_risk": pred["property_condition_risk"],
+        "property_state": pred["property_state"],
+        "occupancy_type": pred["occupancy_type"],
+        "cover_type": pred["cover_type"],
+        "submission_channel": pred["submission_channel"],
+        "excluded": pred.get("excluded", False),
+        "exclusion_reason": pred.get("exclusion_reason", None),
+        "shap_values": MOCK_LOCAL_SHAP[prop_index],
+        "vulnerability_data": MOCK_VULNERABILITY[prop_index],
+    }

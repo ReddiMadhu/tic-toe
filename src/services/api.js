@@ -88,3 +88,8 @@ export const sendLetterOfIntent = async (payload) => {
   const response = await api.post('/api/triage/send-letter', payload, { timeout: 30000 });
   return response.data;
 };
+
+export const fetchPropertyResult = async (submissionId) => {
+  const response = await api.get(`/api/triage/property/${submissionId}`);
+  return response.data;
+};

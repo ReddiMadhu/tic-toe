@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { mockProperties, mockResultsNew } from '../data/mockData';
+import { fetchPropertyResult } from '../services/api';
 
 
 const formatCurrency = (value) =>
@@ -60,6 +61,7 @@ const PropertyDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showVulnerabilityPopup, setShowVulnerabilityPopup] = useState(false);
+  const [triageResult, setTriageResult] = useState(null);
 
   // Data passed from DecisionComparison via router state
   const passedProperty = location.state?.property;
@@ -67,18 +69,36 @@ const PropertyDetail = () => {
   const passedResults = location.state?.results;
   const fromTriage = location.state?.fromTriage ?? false;
 
+  // When navigated from triage, fetch result data via submission_id
+  useEffect(() => {
+    if (!fromTriage || !passedProperty?.submission_id) return;
+    fetchPropertyResult(passedProperty.submission_id)
+      .then(setTriageResult)
+      .catch(() => setTriageResult(null));
+  }, [fromTriage, passedProperty?.submission_id]);
+
   // Use passed data, fall back to scanning mockResultsNew by id
   const results = passedResults || mockResultsNew;
   const propertiesList = mockProperties;
 
-  const propertyResult = passedPropertyResult
-    || results?.results?.find((r) => r.submission_id === id)
-    || results?.results?.[0];
+  const propertyResult = fromTriage
+    ? (triageResult || null)
+    : (passedPropertyResult
+        || results?.results?.find((r) => r.submission_id === id)
+        || results?.results?.[0]);
 
   const propIndex = propertyResult?.property_index ?? 0;
   const property = passedProperty || propertiesList[propIndex] || propertiesList[0];
 
   if (!property || !propertyResult) {
+    // While waiting for triage API fetch, show a loading state
+    if (fromTriage && !triageResult) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
