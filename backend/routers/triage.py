@@ -210,6 +210,23 @@ def send_letter(request: LetterRequest):
     return {"status": "sent"}
 
 
+@router.get("/properties")
+def get_triage_properties():
+    """Return all 6 properties merged with propensity data from MOCK_PREDICTIONS (by position)."""
+    properties = get_properties()
+    result = []
+    for i, prop in enumerate(properties[:6]):
+        if i >= len(MOCK_PREDICTIONS):
+            break
+        pred = MOCK_PREDICTIONS[i]
+        result.append({
+            **prop,
+            "quote_propensity": pred["quote_propensity_probability"],
+            "quote_propensity_label": pred["quote_propensity"],
+        })
+    return result
+
+
 @router.get("/property/{submission_id}")
 def get_property_result(submission_id: str):
     """Return full property result data for a given submission_id string (e.g. 'SUB0001').

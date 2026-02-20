@@ -1,17 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { fetchProperties, sendLetterOfIntent } from '../services/api';
-
-// Propensity by position index (0=A=High, 1=B=High, 2=C=High, 3=D=Mid, 4=E=Mid, 5=F=Low)
-const POSITION_PROPENSITY = [
-  { label: 'High Propensity', tier: 'High', score: 0.8980 },
-  { label: 'High Propensity', tier: 'High', score: 0.9307 },
-  { label: 'High Propensity', tier: 'High', score: 0.8465 },
-  { label: 'Mid Propensity',  tier: 'Mid',  score: 0.4319 },
-  { label: 'Mid Propensity',  tier: 'Mid',  score: 0.4517 },
-  { label: 'Low Propensity',  tier: 'Low',  score: 0.0357 },
-];
-const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+import { fetchTriageProperties, sendLetterOfIntent } from '../services/api';
 
 const TIER_LABEL = { high: 'High', mid: 'Mid', low: 'Low' };
 const TIER_BADGE = {
@@ -38,11 +27,10 @@ const formatCurrency = (value) => {
 const TriagePage = () => {
   const [searchParams] = useSearchParams();
   const [properties, setProperties] = useState([]);
-  const [propensityMap, setPropensityMap] = useState({});
   const [loading, setLoading] = useState(true);
-  const [letterModal, setLetterModal] = useState(null); // property object or null
+  const [letterModal, setLetterModal] = useState(null);
   const [letterSending, setLetterSending] = useState(false);
-  const [letterResult, setLetterResult] = useState(null); // 'sent' | 'error' | null
+  const [letterResult, setLetterResult] = useState(null);
   const navigate = useNavigate();
 
   const propensityParam = (searchParams.get('propensity') || 'high').toLowerCase();
@@ -51,24 +39,24 @@ const TriagePage = () => {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const data = await fetchProperties();
-      // Build propensity map keyed by actual submission_id from API, using position index
-      const map = {};
-      data.forEach((p, i) => {
-        if (POSITION_PROPENSITY[i]) map[p.submission_id] = POSITION_PROPENSITY[i];
-      });
-      setPropensityMap(map);
+      const data = await fetchTriageProperties();
       setProperties(data);
       setLoading(false);
     };
     load();
   }, []);
 
-  // Filter properties to only those matching the requested propensity tier
-  const filteredProperties = properties.filter((p) => {
-    const info = propensityMap[p.submission_id];
-    return info?.tier === tierKey;
-  });
+  // Derive tier from quote_propensity_label (e.g. "High Propensity" → "High")
+  const getTier = (label) => {
+    if (!label) return 'Low';
+    const l = label.toLowerCase();
+    if (l.includes('high')) return 'High';
+    if (l.includes('mid')) return 'Mid';
+    return 'Low';
+  };
+
+  // Filter by tier derived from quote_propensity_label
+  const filteredProperties = properties.filter((p) => getTier(p.quote_propensity_label) === tierKey);
 
   const handleSendLetter = async (letterType) => {
     if (!letterModal) return;
@@ -164,8 +152,10 @@ const TriagePage = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredProperties.map((property) => {
-                    const info = propensityMap[property.submission_id];
-                    const scorePct = info ? Math.round(info.score * 100) : '—';
+                    const scorePct = property.quote_propensity != null
+                      ? Math.round(property.quote_propensity * 100)
+                      : '—';
+                    const tier = getTier(property.quote_propensity_label);
                     return (
                       <tr key={property.submission_id || property.id} className="hover:bg-gray-50 transition-colors">
                         {/* Property Column */}
@@ -194,11 +184,11 @@ const TriagePage = () => {
                         {/* Propensity Score */}
                         <td className="px-3 py-2">
                           <div className="flex flex-col gap-1">
-                            <span className={`text-lg font-extrabold ${TIER_SCORE_COLOR[tierKey]}`}>
+                            <span className={`text-lg font-extrabold ${TIER_SCORE_COLOR[tier]}`}>
                               {scorePct}%
                             </span>
-                            <span className={`text-xs font-medium border rounded-full px-2 py-0.5 w-fit ${TIER_BADGE[tierKey]}`}>
-                              {info?.label ?? tierKey}
+                            <span className={`text-xs font-medium border rounded-full px-2 py-0.5 w-fit ${TIER_BADGE[tier]}`}>
+                              {property.quote_propensity_label ?? tier}
                             </span>
                           </div>
                         </td>

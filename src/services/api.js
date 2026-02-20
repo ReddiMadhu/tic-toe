@@ -93,3 +93,8 @@ export const fetchPropertyResult = async (submissionId) => {
   const response = await api.get(`/api/triage/property/${submissionId}`);
   return response.data;
 };
+
+export const fetchTriageProperties = async () => {
+  const response = await api.get('/api/triage/properties');
+  return response.data;
+};
