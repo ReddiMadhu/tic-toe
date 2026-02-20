@@ -29,6 +29,8 @@ const Badge = ({ variant = 'default', children, value }) => {
       ? 'bg-amber-100 text-amber-700 border border-amber-300 px-2 py-0.5'
       : (value === 'Low' || value?.includes('Low'))
       ? 'bg-red-100 text-red-700 border border-red-300 px-2 py-0.5'
+      : (value === 'Excluded' || value?.includes('Excluded'))
+      ? 'bg-orange-100 text-orange-700 border border-orange-300 px-2 py-0.5'
       : 'bg-gray-100 text-gray-700 border border-gray-300 px-2 py-0.5',
     default: 'bg-gray-100 text-gray-700 border border-gray-300 px-2 py-0.5'
   };

@@ -34,6 +34,14 @@ class TriageRequest(BaseModel):
     submissionId: Optional[int] = None
 
 
+class LetterRequest(BaseModel):
+    submissionId: str
+    brokerEmail: str
+    brokerCompany: Optional[str] = ""
+    propertyCounty: Optional[str] = ""
+    letterType: str  # "intent" or "not_interested"
+
+
 def _build_email(tier: str, submission_ids: list[str], today_str: str) -> MIMEMultipart:
     propensity_param = tier.lower()
     triage_url = f"{BASE_URL}/triage?propensity={propensity_param}"
@@ -124,3 +132,78 @@ def send_triage_emails(request: TriageRequest):
         return {"status": "error", "reason": str(exc), "tiers": tier_counts}
 
     return {"status": "sent", "tiers": tier_counts}
+
+
+@router.post("/send-letter")
+def send_letter(request: LetterRequest):
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_pass = os.getenv("SMTP_PASS")
+
+    broker = request.brokerCompany or "Broker"
+    county = request.propertyCounty or "the property"
+    sub_id = request.submissionId
+    today_str = date.today().strftime("%b %d, %Y")
+
+    if request.letterType == "intent":
+        subject = f"Re: Submission {sub_id} — Letter of Intent"
+        plain = (
+            f"Dear {broker},\n\n"
+            f"We have completed our review of submission {sub_id} for {county} "
+            f"and are pleased to confirm our intent to proceed with quoting.\n\n"
+            f"Our underwriting team will be in touch with further details shortly.\n\n"
+            f"Regards,\nUWT Underwriting Team\n{SENDER_EMAIL}"
+        )
+        html = f"""
+        <html><body style="font-family:Arial,sans-serif;color:#111827;max-width:600px;margin:auto;padding:24px">
+          <h2 style="color:#16a34a">Letter of Intent</h2>
+          <p>Dear <strong>{broker}</strong>,</p>
+          <p>We have completed our review of submission <strong>{sub_id}</strong> for <strong>{county}</strong>
+             and are pleased to confirm our intent to proceed with quoting.</p>
+          <p>Our underwriting team will be in touch with further details shortly.</p>
+          <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0"/>
+          <p style="font-size:12px;color:#6b7280">Regards, UWT Underwriting Team | {SENDER_EMAIL} | {today_str}</p>
+        </body></html>
+        """
+    else:
+        subject = f"Re: Submission {sub_id} — Notice of Non-Interest"
+        plain = (
+            f"Dear {broker},\n\n"
+            f"Thank you for submitting {sub_id} for {county} for our consideration. "
+            f"After careful review, we regret that we are unable to proceed with this submission at this time.\n\n"
+            f"We appreciate your continued partnership and look forward to future opportunities.\n\n"
+            f"Regards,\nUWT Underwriting Team\n{SENDER_EMAIL}"
+        )
+        html = f"""
+        <html><body style="font-family:Arial,sans-serif;color:#111827;max-width:600px;margin:auto;padding:24px">
+          <h2 style="color:#dc2626">Notice of Non-Interest</h2>
+          <p>Dear <strong>{broker}</strong>,</p>
+          <p>Thank you for submitting <strong>{sub_id}</strong> for <strong>{county}</strong> for our consideration.</p>
+          <p>After careful review, we regret that we are unable to proceed with this submission at this time.</p>
+          <p>We appreciate your continued partnership and look forward to future opportunities.</p>
+          <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0"/>
+          <p style="font-size:12px;color:#6b7280">Regards, UWT Underwriting Team | {SENDER_EMAIL} | {today_str}</p>
+        </body></html>
+        """
+
+    if not smtp_host or not smtp_user or not smtp_pass:
+        return {"status": "skipped", "reason": "SMTP not configured"}
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = smtp_user
+    msg["To"] = request.brokerEmail
+    msg.attach(MIMEText(plain, "plain"))
+    msg.attach(MIMEText(html, "html"))
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_user, request.brokerEmail, msg.as_string())
+    except Exception as exc:
+        return {"status": "error", "reason": str(exc)}
+
+    return {"status": "sent"}

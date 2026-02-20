@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { fetchProperties } from '../services/api';
+import { fetchProperties, sendLetterOfIntent } from '../services/api';
 
 // Propensity by position index (0=A=High, 1=B=High, 2=C=High, 3=D=Mid, 4=E=Mid, 5=F=Low)
 const POSITION_PROPENSITY = [
@@ -40,6 +40,9 @@ const TriagePage = () => {
   const [properties, setProperties] = useState([]);
   const [propensityMap, setPropensityMap] = useState({});
   const [loading, setLoading] = useState(true);
+  const [letterModal, setLetterModal] = useState(null); // property object or null
+  const [letterSending, setLetterSending] = useState(false);
+  const [letterResult, setLetterResult] = useState(null); // 'sent' | 'error' | null
   const navigate = useNavigate();
 
   const propensityParam = (searchParams.get('propensity') || 'high').toLowerCase();
@@ -66,6 +69,30 @@ const TriagePage = () => {
     const info = propensityMap[p.submission_id];
     return info?.tier === tierKey;
   });
+
+  const handleSendLetter = async (letterType) => {
+    if (!letterModal) return;
+    setLetterSending(true);
+    setLetterResult(null);
+    try {
+      await sendLetterOfIntent({
+        submissionId: letterModal.submission_id,
+        brokerEmail: letterModal.broker_email || 'broker@uwt.org',
+        brokerCompany: letterModal.broker_company || '',
+        propertyCounty: letterModal.property_county || '',
+        letterType,
+      });
+      setLetterResult('sent');
+      setTimeout(() => {
+        setLetterModal(null);
+        setLetterResult(null);
+      }, 2000);
+    } catch {
+      setLetterResult('error');
+    } finally {
+      setLetterSending(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
@@ -204,21 +231,32 @@ const TriagePage = () => {
                           <span className="text-sm font-semibold text-gray-700">{property.state || '—'}</span>
                         </td>
 
-                        {/* View Details */}
+                        {/* View Details + Send Letter */}
                         <td className="px-3 py-2">
-                          <button
-                            onClick={() =>
-                              navigate(`/property/${property.submission_id || property.id}`, {
-                                state: { property },
-                              })
-                            }
-                            className="px-3 py-1.5 rounded-md text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors inline-flex items-center gap-1.5"
-                          >
-                            View Details
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                          </button>
+                          <div className="flex flex-col gap-1.5">
+                            <button
+                              onClick={() =>
+                                navigate(`/property/${property.submission_id || property.id}`, {
+                                  state: { property, fromTriage: true },
+                                })
+                              }
+                              className="px-3 py-1.5 rounded-md text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors inline-flex items-center gap-1.5"
+                            >
+                              View Details
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => { setLetterModal(property); setLetterResult(null); }}
+                              className="px-3 py-1.5 rounded-md text-sm font-medium border border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400 transition-colors inline-flex items-center gap-1.5"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                              </svg>
+                              Send Letter
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -229,6 +267,81 @@ const TriagePage = () => {
           </div>
         )}
       </div>
+
+      {/* Letter Modal */}
+      {letterModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => { setLetterModal(null); setLetterResult(null); }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-base font-bold text-gray-900">Send Underwriter Letter</h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {letterModal.submission_id} — {letterModal.property_county}
+                </p>
+              </div>
+              <button
+                onClick={() => { setLetterModal(null); setLetterResult(null); }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Broker info */}
+            <div className="bg-gray-50 rounded-lg px-4 py-3 mb-5 space-y-1">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-gray-500 w-16 flex-shrink-0">Broker</span>
+                <span className="font-semibold text-gray-800">{letterModal.broker_company || '—'}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-gray-500 w-16 flex-shrink-0">Email</span>
+                <span className="font-medium text-blue-700">{letterModal.broker_email || 'broker@uwt.org'}</span>
+              </div>
+            </div>
+
+            {/* Success / Error */}
+            {letterResult === 'sent' && (
+              <div className="mb-4 bg-green-50 border border-green-200 text-green-800 text-sm rounded-lg px-4 py-2.5 text-center font-medium">
+                Email sent to {letterModal.broker_email || 'broker@uwt.org'}
+              </div>
+            )}
+            {letterResult === 'error' && (
+              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2.5 text-center font-medium">
+                Failed to send — check SMTP config
+              </div>
+            )}
+
+            {/* Action buttons */}
+            {!letterResult && (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleSendLetter('intent')}
+                  disabled={letterSending}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {letterSending ? 'Sending...' : 'Letter of Intent'}
+                </button>
+                <button
+                  onClick={() => handleSendLetter('not_interested')}
+                  disabled={letterSending}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {letterSending ? 'Sending...' : 'Not Interested'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

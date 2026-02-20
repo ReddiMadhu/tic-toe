@@ -83,3 +83,8 @@ export const sendTriageEmails = async (submissionId) => {
   const response = await api.post('/api/triage/send-emails', { submissionId }, { timeout: 30000 });
   return response.data;
 };
+
+export const sendLetterOfIntent = async (payload) => {
+  const response = await api.post('/api/triage/send-letter', payload, { timeout: 30000 });
+  return response.data;
+};

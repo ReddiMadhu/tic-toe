@@ -73,6 +73,13 @@ MOCK_PREDICTIONS = [
         "total_risk_score": 54,
         "quote_propensity_probability": 0.4319356302,
         "quote_propensity": "Mid Propensity",
+        "excluded": True,
+        "exclusion_reason": "Property exceeds the underwriting threshold for structural vulnerability. Critical roof damage, foundation cracks, and proximity to active fault lines place this property outside acceptable risk bounds.",
+        "exclusion_parameters": [
+            {"name": "Property Vulnerability Risk", "value": 95},
+            {"name": "Coverage Risk", "value": 78},
+            {"name": "Locality Risk", "value": 43},
+        ],
     },
     {
         "submission_id": "SUB07726",
@@ -293,6 +300,9 @@ def _build_mock_results(submission_id, underwriter_name="Demo User", prioritized
             "occupancy_type": pred["occupancy_type"],
             "cover_type": pred["cover_type"],
             "submission_channel": pred["submission_channel"],
+            "excluded": pred.get("excluded", False),
+            "exclusion_reason": pred.get("exclusion_reason", None),
+            "exclusion_parameters": pred.get("exclusion_parameters", []),
             "shap_values": MOCK_LOCAL_SHAP[i],
             "vulnerability_data": MOCK_VULNERABILITY[i],
         })
@@ -300,15 +310,19 @@ def _build_mock_results(submission_id, underwriter_name="Demo User", prioritized
     # Compute score inline (can't call _compute_score here as it's defined below)
     points = 0.0
     for r in results:
-        label = (r.get("quote_propensity_label") or "").lower()
         sel = r.get("user_selection")
-        tier = "High" if "high" in label else "Mid" if "mid" in label else "Low"
-        if sel == "prioritized":
-            if tier == "High": points += 1.0
-            elif tier == "Mid": points += 0.5
-        elif sel == "discarded":
-            if tier == "Low": points += 1.0
-            elif tier == "Mid": points += 0.5
+        if r.get("excluded"):
+            if sel == "discarded":
+                points += 1.0
+        else:
+            label = (r.get("quote_propensity_label") or "").lower()
+            tier = "High" if "high" in label else "Mid" if "mid" in label else "Low"
+            if sel == "prioritized":
+                if tier == "High": points += 1.0
+                elif tier == "Mid": points += 0.5
+            elif sel == "discarded":
+                if tier == "Low": points += 1.0
+                elif tier == "Mid": points += 0.5
     score_pct = round((points / 6.0) * 100, 1)
 
     return {
@@ -321,22 +335,28 @@ def _build_mock_results(submission_id, underwriter_name="Demo User", prioritized
 
 
 def _compute_score(results_list: list) -> float:
-    """Compute alignment score from results list (user_selection vs quote_propensity_label)."""
+    """Compute alignment score from results list (user_selection vs quote_propensity_label).
+    Excluded properties earn +1 if correctly discarded, 0 otherwise. Denominator stays 6.
+    """
     points = 0.0
     for r in results_list:
-        label = (r.get("quote_propensity_label") or "").lower()
         sel = r.get("user_selection")
-        tier = "High" if "high" in label else "Mid" if "mid" in label else "Low"
-        if sel == "prioritized":
-            if tier == "High":
+        if r.get("excluded"):
+            if sel == "discarded":
                 points += 1.0
-            elif tier == "Mid":
-                points += 0.5
-        elif sel == "discarded":
-            if tier == "Low":
-                points += 1.0
-            elif tier == "Mid":
-                points += 0.5
+        else:
+            label = (r.get("quote_propensity_label") or "").lower()
+            tier = "High" if "high" in label else "Mid" if "mid" in label else "Low"
+            if sel == "prioritized":
+                if tier == "High":
+                    points += 1.0
+                elif tier == "Mid":
+                    points += 0.5
+            elif sel == "discarded":
+                if tier == "Low":
+                    points += 1.0
+                elif tier == "Mid":
+                    points += 0.5
     return points
 
 
@@ -398,6 +418,9 @@ def get_results(submission_id: str):
                 "occupancy_type": pred["occupancy_type"],
                 "cover_type": pred["cover_type"],
                 "submission_channel": pred["submission_channel"],
+                "excluded": pred.get("excluded", False),
+                "exclusion_reason": pred.get("exclusion_reason", None),
+                "exclusion_parameters": pred.get("exclusion_parameters", []),
                 "shap_values": json.loads(row["shap_values"]) if row["shap_values"] else MOCK_SHAP_VALUES,
                 "vulnerability_data": {**MOCK_VULNERABILITY[i], **(json.loads(row["vulnerability_data"]) if row["vulnerability_data"] else {})},
             })

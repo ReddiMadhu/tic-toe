@@ -65,6 +65,7 @@ const PropertyDetail = () => {
   const passedProperty = location.state?.property;
   const passedPropertyResult = location.state?.propertyResult;
   const passedResults = location.state?.results;
+  const fromTriage = location.state?.fromTriage ?? false;
 
   // Use passed data, fall back to scanning mockResultsNew by id
   const results = passedResults || mockResultsNew;
@@ -211,9 +212,11 @@ const PropertyDetail = () => {
               {quote_propensity_label && <span className={`ml-1.5 text-xs font-semibold px-2 py-0.5 rounded border ${propColor.bg} ${propColor.text} ${propColor.border}`}>{riskEmoji} {quote_propensity_label}</span>}
             </span>
             <div className="ml-auto">
-              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border ${selectionCls}`}>
-                {selectionIcon} Your Selection: {selectionLabel}
-              </span>
+              {!fromTriage && (
+                <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border ${selectionCls}`}>
+                  {selectionIcon} Your Selection: {selectionLabel}
+                </span>
+              )}
             </div>
           </div>
         </div>

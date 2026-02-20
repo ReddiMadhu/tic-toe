@@ -104,6 +104,9 @@ const DecisionComparison = () => {
       quotePercentage: Math.round(r.quote_propensity * 100),
       propensityLabel: r.quote_propensity_label,
     },
+    excluded: r.excluded ?? false,
+    exclusionReason: r.exclusion_reason ?? null,
+    exclusionParameters: r.exclusion_parameters ?? [],
   }));
 
   // Use global_shap from API if available, else aggregate
@@ -181,6 +184,7 @@ const DecisionComparison = () => {
                             <th className="text-center pb-1 font-semibold">AI: High</th>
                             <th className="text-center pb-1 font-semibold">AI: Mid</th>
                             <th className="text-center pb-1 font-semibold">AI: Low</th>
+                            <th className="text-center pb-1 font-semibold">Excluded</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -189,11 +193,13 @@ const DecisionComparison = () => {
                             <td className="text-center py-1 font-bold text-green-600">+1</td>
                             <td className="text-center py-1 font-bold text-amber-600">+0.5</td>
                             <td className="text-center py-1 text-gray-400">0</td>
+                            <td className="text-center py-1 text-gray-400">0</td>
                           </tr>
                           <tr>
                             <td className="py-1 text-red-600 font-medium">Discarded</td>
                             <td className="text-center py-1 text-gray-400">0</td>
                             <td className="text-center py-1 font-bold text-amber-600">+0.5</td>
+                            <td className="text-center py-1 font-bold text-green-600">+1</td>
                             <td className="text-center py-1 font-bold text-green-600">+1</td>
                           </tr>
                         </tbody>
