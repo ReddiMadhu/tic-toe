@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { mockProperties, mockResultsNew } from '../data/mockData';
-import { fetchPropertyResult } from '../services/api';
+import { fetchPropertyResult, sendLetterOfIntent } from '../services/api';
 
 
 const formatCurrency = (value) =>
@@ -62,6 +62,10 @@ const PropertyDetail = () => {
   const location = useLocation();
   const [showVulnerabilityPopup, setShowVulnerabilityPopup] = useState(false);
   const [triageResult, setTriageResult] = useState(null);
+  const [letterModal, setLetterModal] = useState(false);
+  const [letterSending, setLetterSending] = useState(false);
+  const [letterResult, setLetterResult] = useState(null);
+  const [justification, setJustification] = useState('');
 
   // Data passed from DecisionComparison via router state
   const passedProperty = location.state?.property;
@@ -176,6 +180,26 @@ const PropertyDetail = () => {
 
   const riskEmoji = quote_propensity_label?.includes('High') ? '🟢' : quote_propensity_label?.includes('Low') ? '🔴' : '🟠';
 
+  const handleSendLetter = async (letterType) => {
+    setLetterSending(true);
+    setLetterResult(null);
+    try {
+      await sendLetterOfIntent({
+        submissionId: property.submission_id,
+        brokerEmail: property.broker_email || 'broker@uwt.org',
+        brokerCompany: property.broker_company || '',
+        propertyCounty: property.property_county || '',
+        letterType,
+      });
+      setLetterResult('sent');
+      setTimeout(() => { setLetterModal(false); setLetterResult(null); }, 2000);
+    } catch {
+      setLetterResult('error');
+    } finally {
+      setLetterSending(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {showVulnerabilityPopup && (
@@ -209,6 +233,17 @@ const PropertyDetail = () => {
             Back
           </button>
           <h1 className="text-lg font-bold text-gray-900">Property Risk Evaluation Page</h1>
+          {fromTriage && (
+            <button
+              onClick={() => { setLetterModal(true); setLetterResult(null); setJustification(''); }}
+              className="ml-auto flex items-center gap-1.5 text-sm font-medium border border-blue-300 text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-md transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Send Letter
+            </button>
+          )}
         </div>
       </div>
 
@@ -406,7 +441,91 @@ const PropertyDetail = () => {
         </div>
 
       </div>
+      
+      {letterModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => { setLetterModal(false); setLetterResult(null); setJustification(''); }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-base font-bold text-gray-900">Send Underwriter Letter</h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {property.submission_id} — {property.property_county}
+                </p>
+              </div>
+              <button
+                onClick={() => { setLetterModal(false); setLetterResult(null); setJustification(''); }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="bg-gray-50 rounded-lg px-4 py-3 mb-5 space-y-1">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-gray-500 w-16 flex-shrink-0">Broker</span>
+                <span className="font-semibold text-gray-800">{property.broker_company || '—'}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-gray-500 w-16 flex-shrink-0">Email</span>
+                <span className="font-medium text-blue-700">{property.broker_email || 'broker@uwt.org'}</span>
+              </div>
+            </div>
+            {letterResult === 'sent' && (
+              <div className="mb-4 bg-green-50 border border-green-200 text-green-800 text-sm rounded-lg px-4 py-2.5 text-center font-medium">
+                Email sent to {property.broker_email || 'broker@uwt.org'}
+              </div>
+            )}
+            {letterResult === 'error' && (
+              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2.5 text-center font-medium">
+                Failed to send — check SMTP config
+              </div>
+            )}
+            {!letterResult && (
+              <>
+                <div className="mb-4">
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                    Justification for Override Decision
+                  </label>
+                  <textarea
+                    value={justification}
+                    onChange={(e) => setJustification(e.target.value)}
+                    placeholder="Enter underwriter justification..."
+                    rows={3}
+                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleSendLetter('intent')}
+                    disabled={letterSending}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {letterSending ? 'Sending...' : 'Risk Cleared'}
+                  </button>
+                  <button
+                    onClick={() => handleSendLetter('not_interested')}
+                    disabled={letterSending}
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {letterSending ? 'Sending...' : 'Risk Denied'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+        
+      )}
     </div>
+
+
   );
 };
 
