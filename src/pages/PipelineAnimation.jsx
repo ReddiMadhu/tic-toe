@@ -1,555 +1,384 @@
-import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { fetchProperties, fetchResults } from '../services/api';
+import { useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 
-// ─── Build per-property stream data from API responses ───────────────────────
-function buildPropertiesStream(resultsData, propertiesData) {
-  return (resultsData?.results || []).map((r, i) => {
-    const prop = propertiesData.find((p) => p.id === r.property_id) || propertiesData[i] || {};
-    const findings = (r.vulnerability_data?.object_detection?.findings || [])
-      .map((f) => `${f.label} · ${f.risk}`)
-      .join('  ·  ') || 'No findings';
-    const wildfire = r.vulnerability_data?.proximity?.wildfire_zone || '—';
-    const flood    = r.vulnerability_data?.proximity?.flood_zone    || '—';
-    const propPct  = Math.round(r.quote_propensity * 100);
-    const category = propPct >= 70 ? 'HIGH' : propPct >= 40 ? 'MEDIUM' : 'LOW';
-    return {
-      id: prop.propertyId || String.fromCharCode(65 + i),
-      imageUrl: prop.imageUrl,
-      county: prop.property_county || '—',
-      occupancy: prop.occupancy_type || '—',
-      age: prop.property_age || '—',
-      roofCondition: r.vulnerability_data?.roof_detection?.condition || '—',
-      roofMaterial:  r.vulnerability_data?.roof_detection?.material  || '—',
-      wildfire,
-      flood,
-      findings,
-      riskScore: r.total_risk_score,
-      aiRisk: r.ai_risk,
-      propensity: r.quote_propensity,
-      propensityPct: `${propPct}%`,
-      propensityCategory: category,
-    };
-  });
-}
+/* --- Icons --- */
+const MapPin = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>;
+const ImageIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>;
+const Target = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>;
+const ShieldAlert = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>;
+const Database = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>;
 
-// ─── Phase 1 — Property Insights (5 steps) ───────────────────────────────────
-const PHASE1_STEPS = [
-  {
-    id: 'p1s1',
-    label: 'Fetching Roof Images',
-    getInput:  (p) => `Satellite dataset · ${p.county}`,
-    getOutput: (p) => `Roof image retrieved · ${p.roofMaterial}`,
-  },
-  {
-    id: 'p1s2',
-    label: 'Image Processing',
-    getInput:  ()  => `Raw satellite image · resolution normalisation`,
-    getOutput: (p) => `Image pre-processed · Roof condition: ${p.roofCondition}`,
-  },
-  {
-    id: 'p1s3',
-    label: 'Running Computer Vision Model (YOLOv8)',
-    getInput:  ()  => `Processed roof image · YOLOv8-property-v2`,
-    getOutput: (p) => p.findings,
-  },
-  {
-    id: 'p1s4',
-    label: 'Running Proximity Analysis',
-    getInput:  (p) => `GPS coords · ${p.county} hazard zone maps`,
-    getOutput: (p) => `Wildfire: ${p.wildfire}  ·  Flood: ${p.flood}`,
-  },
-  {
-    id: 'p1s5',
-    label: 'Calculating Property Risk Score',
-    getInput:  ()  => `CV findings + proximity zones + roof condition`,
-    getOutput: (p) => `Risk Score: ${p.riskScore}  ·  ${p.aiRisk} Risk`,
-  },
+const PROCESSING_GIF = "https://media.tenor.com/On7kvXhzmL4AAAAj/loading-gif.gif";
+
+/* --- Canvas size that all x/y coordinates are based on --- */
+const CANVAS_W = 1600;
+const CANVAS_H = 780;
+
+/* ---------------- NODES & DIVISIONS ---------------- */
+const DIVISIONS = [
+  { id: "div1", label: "Property Insights", nodes: ["address", "imagery", "frontRoof", "objectDetect", "threat", "proximity", "vulnerability"], x: 90, y: 110, w: 610, h: 580 },
+  { id: "div2", label: "Submission Details", nodes: ["submission", "exclusion"], x: 790, y: 110, w: 310, h: 220 },
+  { id: "div3", label: "Quote Propensity", nodes: ["riskScore", "propensityScore", "propensityLevel"], x: 790, y: 370, w: 310, h: 320 },
+  { id: "div4", label: "Broker Profiles", nodes: ["broker"], x: 1190, y: 350, w: 310, h: 100 }
 ];
 
-// ─── Phase 2 — Quote Propensity (6 steps) ────────────────────────────────────
-const PHASE2_STEPS = [
+const nodes = [
+  /* Division 1 */
+  { id: "address", label: "Property Address", icon: MapPin, x: 270, y: 150, div: "div1" },
+  { id: "imagery", label: "Imagery and spatial data from 10+ leading companies", icon: ImageIcon, x: 270, y: 250, div: "div1" },
+  { id: "frontRoof", label: "Property front and roof images", icon: ImageIcon, x: 120, y: 370, div: "div1" },
+  { id: "objectDetect", label: "Key roof feature detection using object detection algorithms", icon: Target, x: 120, y: 490, div: "div1" },
+  { id: "threat", label: "Proximity to threat zones", icon: ShieldAlert, x: 420, y: 370, div: "div1" },
+  { id: "proximity", label: "Proximity analysis", icon: MapPin, x: 420, y: 490, div: "div1" },
   {
-    id: 'p2s1',
-    label: 'Fetching External & Internal Data',
-    getInput:  ()  => `Policy DB · external hazard API · claims history`,
-    getOutput: (p) => `Data fetched · ${p.occupancy} · Age: ${p.age} yrs`,
-  },
-  {
-    id: 'p2s2',
-    label: 'Data Cleaning & Transformation',
-    getInput:  ()  => `Raw fields · missing-value imputation`,
-    getOutput: ()  => `Dataset cleaned · 28 features ready`,
-  },
-  {
-    id: 'p2s3',
-    label: 'Feature Engineering',
-    getInput:  (p) => `Risk score: ${p.riskScore} · hazard exposure values`,
-    getOutput: ()  => `Hurricane exposure encoded · Wildfire index computed`,
-  },
-  {
-    id: 'p2s4',
-    label: 'Preprocessing & Standardisation',
-    getInput:  ()  => `28 engineered features · scaler pipeline`,
-    getOutput: ()  => `Features normalised · model-ready tensor`,
-  },
-  {
-    id: 'p2s5',
-    label: 'Running Propensity Prediction Model',
-    getInput:  ()  => `Preprocessed tensor · XGBoost propensity model`,
-    getOutput: (p) => `Raw output: ${p.propensity.toFixed(2)}  ·  Calibrated`,
-  },
-  {
-    id: 'p2s6',
-    label: 'Computing SHAP Explanation Values',
-    getInput:  ()  => `Model + input features · TreeExplainer`,
-    getOutput: (p) => `${p.propensityPct} Quote Propensity  ·  ${p.propensityCategory}  ·  SHAP values ready`,
-  },
-];
-
-const STEP_DURATION_MS = 620;
-
-// ─── Risk color helpers ───────────────────────────────────────────────────────
-const riskBadge = (risk) => {
-  if (risk === 'High')   return 'bg-red-100 text-red-700 border-red-200';
-  if (risk === 'Medium') return 'bg-amber-100 text-amber-700 border-amber-200';
-  return 'bg-green-100 text-green-700 border-green-200';
-};
-const propBadge = (cat) => {
-  if (cat === 'HIGH')   return 'bg-green-100 text-green-700 border-green-200';
-  if (cat === 'MEDIUM') return 'bg-amber-100 text-amber-700 border-amber-200';
-  return 'bg-red-100 text-red-700 border-red-200';
-};
-
-// ─── Component ────────────────────────────────────────────────────────────────
-const PipelineAnimation = () => {
-  const navigate    = useNavigate();
-  const location    = useLocation();
-  const submissionId = location.state?.submissionId;
-  const logRef      = useRef(null);
-
-  const [propertiesStream, setPropertiesStream] = useState([]);
-  const [dataReady, setDataReady] = useState(false);
-
-  const [phase, setPhase]           = useState(1);
-  const [progress, setProgress]     = useState(0);
-  const [done, setDone]             = useState(false);
-  const [currentDetail, setCurrentDetail] = useState('Initializing AI pipeline…');
-  const [logLines, setLogLines]     = useState([]);
-
-  // Which property thumbnail is currently "active" (0-5)
-  const [activePropIdx, setActivePropIdx] = useState(0);
-
-  // Per-property status: { p1Steps: [], p2Steps: [], p1Done, p2Done }
-  const [propStatuses, setPropStatuses] = useState([]);
-
-  // Currently visible step list in the main feed
-  const [feedPropIdx, setFeedPropIdx]   = useState(0);
-  const [feedPhase, setFeedPhase]       = useState(1);
-  const [feedSteps, setFeedSteps]       = useState([]); // array of { stepId, inputText, outputText }
-
-  // Fetch API data first, then start animation
-  useEffect(() => {
-    const loadAndStart = async () => {
-      try {
-        const [propertiesData, resultsData] = await Promise.all([
-          fetchProperties(),
-          fetchResults(submissionId || 1),
-        ]);
-        const stream = buildPropertiesStream(resultsData, propertiesData);
-        setPropertiesStream(stream);
-        setPropStatuses(stream.map(() => ({ p1Steps: [], p2Steps: [], p1Done: false, p2Done: false })));
-        setDataReady(true);
-      } catch (err) {
-        console.warn('Failed to load pipeline data, retrying with id 1', err);
-        try {
-          const [propertiesData, resultsData] = await Promise.all([
-            fetchProperties(),
-            fetchResults(1),
-          ]);
-          const stream = buildPropertiesStream(resultsData, propertiesData);
-          setPropertiesStream(stream);
-          setPropStatuses(stream.map(() => ({ p1Steps: [], p2Steps: [], p1Done: false, p2Done: false })));
-          setDataReady(true);
-        } catch (err2) {
-          console.error('Pipeline data load failed:', err2);
-          setDataReady(true); // proceed with empty stream
-        }
-      }
-    };
-    loadAndStart();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Auto-scroll log
-  useEffect(() => {
-    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
-  }, [logLines]);
-
-  // ── Main animation driver ────────────────────────────────────────────────
-  useEffect(() => {
-    if (!dataReady || propertiesStream.length === 0) return;
-
-    let stepsCompleted = 0;
-    const totalStepsAll = propertiesStream.length * (PHASE1_STEPS.length + PHASE2_STEPS.length);
-
-    const addLog = (msg) => setLogLines((prev) => [...prev, msg]);
-
-    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-
-    const runProperty = async (pi, isPhase2) => {
-      const prop  = propertiesStream[pi];
-      const steps = isPhase2 ? PHASE2_STEPS : PHASE1_STEPS;
-
-      setActivePropIdx(pi);
-      setFeedPropIdx(pi);
-      setFeedPhase(isPhase2 ? 2 : 1);
-      setFeedSteps([]); // clear feed for this property
-
-      for (let si = 0; si < steps.length; si++) {
-        const step = steps[si];
-        const inputText  = step.getInput(prop);
-        const outputText = step.getOutput(prop);
-
-        setCurrentDetail(`Prop ${prop.id} — ${step.label}…`);
-
-        await sleep(STEP_DURATION_MS);
-
-        // Reveal output in feed
-        setFeedSteps((prev) => [
-          ...prev,
-          { stepId: step.id, label: step.label, inputText, outputText },
-        ]);
-
-        // Mark step done in propStatuses
-        setPropStatuses((prev) => {
-          const next = prev.map((s, i) => ({ ...s }));
-          if (isPhase2) {
-            next[pi].p2Steps = [...next[pi].p2Steps, step.id];
-          } else {
-            next[pi].p1Steps = [...next[pi].p1Steps, step.id];
-          }
-          return next;
-        });
-
-        // Log line
-        addLog(`Prop ${prop.id} – ${step.label}`);
-
-        stepsCompleted++;
-        const pct = Math.round((stepsCompleted / totalStepsAll) * 100);
-        setProgress(pct);
-      }
-
-      // Mark property phase done
-      setPropStatuses((prev) => {
-        const next = prev.map((s) => ({ ...s }));
-        if (isPhase2) {
-          next[pi].p2Done = true;
-        } else {
-          next[pi].p1Done = true;
-        }
-        return next;
-      });
-    };
-
-    const run = async () => {
-      await sleep(350);
-
-      // Phase 1 — all properties
-      setPhase(1);
-      for (let pi = 0; pi < propertiesStream.length; pi++) {
-        await runProperty(pi, false);
-      }
-
-      // Brief pause at phase transition
-      setCurrentDetail('Phase 1 complete — starting Quote Propensity Model…');
-      await sleep(600);
-
-      // Phase 2 — all properties
-      setPhase(2);
-      setFeedSteps([]);
-      for (let pi = 0; pi < propertiesStream.length; pi++) {
-        await runProperty(pi, true);
-      }
-
-      setProgress(100);
-      setDone(true);
-      setCurrentDetail('All properties processed — pipeline complete.');
-      await sleep(1200);
-      navigate('/comparison', { state: { submissionId } });
-    };
-
-    run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataReady]);
-
-  // ── JSX ──────────────────────────────────────────────────────────────────
-  const currentFeedProp = propertiesStream[feedPropIdx];
-  const allPhaseSteps   = feedPhase === 1 ? PHASE1_STEPS : PHASE2_STEPS;
-
-  if (!dataReady) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">Preparing AI pipeline…</p>
-        </div>
+    id: "vulnerability",
+    label: (
+      <div style={{ textAlign: "left", lineHeight: "1.4" }}>
+        <ul style={{ margin: 0, paddingLeft: "15px" }}>
+          <li>Property vulnerability score</li>
+          <li>Wildfire and hurricane scores</li>
+        </ul>
       </div>
-    );
+    ),
+    icon: ShieldAlert, x: 270, y: 610, div: "div1"
+  },
+
+  /* Division 4 */
+  { id: "broker", label: "Broker Data", icon: Database, x: 1220, y: 390, div: "div4" },
+
+  /* Division 2 */
+  { id: "submission", label: "Submission Details", icon: Database, x: 820, y: 150, div: "div2" },
+  { id: "exclusion", label: "Excluding Properties based on configured rules", icon: ShieldAlert, x: 820, y: 250, div: "div2" },
+
+  /* Division 3 */
+  { id: "riskScore", label: "Property Risk Score", icon: Target, x: 820, y: 410, div: "div3" },
+  { id: "propensityScore", label: "Underwriting Propensity Score", icon: Target, x: 820, y: 530, div: "div3" },
+  { id: "propensityLevel", label: "Propensity Level (High/Medium/Low)", icon: Target, x: 820, y: 630, div: "div3" },
+];
+
+/* ---------------- EDGES ---------------- */
+const edges = [
+  { id: "a-i", from: "address", to: "imagery" },
+  { id: "i-fr", from: "imagery", to: "frontRoof" },
+  { id: "fr-od", from: "frontRoof", to: "objectDetect" },
+  { id: "i-th", from: "imagery", to: "threat" },
+  { id: "th-pr", from: "threat", to: "proximity" },
+  { id: "od-v", from: "objectDetect", to: "vulnerability" },
+  { id: "pr-v", from: "proximity", to: "vulnerability" },
+  { id: "su-ex", from: "submission", to: "exclusion" },
+  { id: "rs-ps", from: "riskScore", to: "propensityScore" },
+  { id: "ps-pl", from: "propensityScore", to: "propensityLevel" },
+  { id: "div1-div3", from: "div1", to: "div3", isDivEdge: true },
+  { id: "div2-div3", from: "div2", to: "div3", isDivEdge: true },
+  { id: "div4-div3", from: "div4", to: "div3", isDivEdge: true },
+];
+
+/* ---------------- STEPS ---------------- */
+const steps = [
+  { text: "Receiving property address...", show: ["address"], waitTime: 1000 },
+  { text: "Fetching Imagery and spatial data from 10+ leading companies...", show: ["imagery"], edges: ["a-i"], waitTime: 2000 },
+  { texts: { frontRoof: "Acquiring property front & roof images...", threat: "Analyzing proximity to threat zones..." }, show: ["frontRoof", "threat"], edges: ["i-fr", "i-th"], waitTime: 4000 },
+  { texts: { objectDetect: "Detecting key structural features...", proximity: "Running proximity analysis..." }, show: ["objectDetect", "proximity"], edges: ["fr-od", "th-pr"], waitTime: 3000 },
+  { text: "Calculating combined property vulnerability score...", show: ["vulnerability"], edges: ["od-v", "pr-v"], waitTime: 1800 },
+  { text: "Loading broker data (past performance)...", show: ["broker"], waitTime: 600 },
+  { text: "Processing submission details...", show: ["submission"], waitTime: 600 },
+  { text: "Evaluating property exclusions...", show: ["exclusion"], edges: ["su-ex"], waitTime: 1000 },
+  { text: "Computing property risk score...", show: ["riskScore"], edges: ["div1-div3", "div2-div3", "div4-div3"], waitTime: 2500 },
+  { text: "Evaluating underwriting propensity score...", show: ["propensityScore"], edges: ["rs-ps"], waitTime: 2200 },
+  { text: "Determining propensity level...", show: ["propensityLevel"], edges: ["ps-pl"], waitTime: 4000 },
+];
+
+/* ---------------- HELPERS ---------------- */
+function getDivision(id) { return DIVISIONS.find(d => d.id === id); }
+function getNodeOrDiv(id) { return nodes.find(n => n.id === id) || getDivision(id); }
+
+function generateCurve(fromObj, toObj) {
+  const fromW = fromObj.w || 250;
+  const fromH = fromObj.h || 46;
+  const toW = toObj.w || 250;
+  const toH = toObj.h || 46;
+
+  let fromX = fromObj.x, fromY = fromObj.y;
+  let toX = toObj.x, toY = toObj.y;
+
+  if (fromObj.div && toObj.div && fromObj.div !== toObj.div) {
+    fromX = getDivision(fromObj.div).x;
+    toX = getDivision(toObj.div).x;
   }
 
+  const fCX = fromX + fromW / 2, fCY = fromY + fromH / 2;
+  const tCX = toX + toW / 2, tCY = toY + toH / 2;
+
+  let startX, startY, endX, endY, startDir, endDir;
+
+  const special = {
+    "imagery-frontRoof": true, "imagery-threat": true,
+    "objectDetect-vulnerability": true, "proximity-vulnerability": true,
+  };
+
+  const key = `${fromObj.id}-${toObj.id}`;
+  if (special[key]) {
+    startX = fCX; startY = fromY + fromH; startDir = "down";
+    endX = tCX; endY = toY; endDir = "up";
+  } else {
+    const dx = tCX - fCX, dy = tCY - fCY;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      if (dx > 0) { startX = fromX + fromW; startY = fCY; startDir = "right"; endX = toX; endY = tCY; endDir = "left"; }
+      else { startX = fromX; startY = fCY; startDir = "left"; endX = toX + toW; endY = tCY; endDir = "right"; }
+    } else {
+      if (dy > 0) { startX = fCX; startY = fromY + fromH; startDir = "down"; endX = tCX; endY = toY; endDir = "up"; }
+      else { startX = fCX; startY = fromY; startDir = "up"; endX = tCX; endY = toY + toH; endDir = "down"; }
+    }
+  }
+
+  const OFF = 60;
+  let c1x = startX, c1y = startY, c2x = endX, c2y = endY;
+  if (startDir === "left") c1x -= OFF; if (startDir === "right") c1x += OFF;
+  if (startDir === "up") c1y -= OFF; if (startDir === "down") c1y += OFF;
+  if (endDir === "left") c2x -= OFF; if (endDir === "right") c2x += OFF;
+  if (endDir === "up") c2y -= OFF; if (endDir === "down") c2y += OFF;
+
+  return `M ${startX} ${startY} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${endX} ${endY}`;
+}
+
+/* ================================================================ */
+export default function PipelineAnimation() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const submissionId = location.state?.submissionId;
+
+  const [visibleNodes, setVisibleNodes] = useState([]);
+  // edgeProgress removed — edges animate via CSS class, no value needed
+  const [displayTexts, setDisplayTexts] = useState({});
+  const [activeWaitNodes, setActiveWaitNodes] = useState([]);
+  const [completedNodes, setCompletedNodes] = useState([]);
+  const [scale, setScale] = useState(1);
+
+  /* --- compute scale on mount and resize --- */
+  useEffect(() => {
+    const HEADER_H = 60;
+    const PADDING = 24;
+
+    function computeScale() {
+      const availW = window.innerWidth - PADDING * 2;
+      const availH = window.innerHeight - HEADER_H - PADDING * 2;
+      const sx = availW / CANVAS_W;
+      const sy = availH / CANVAS_H;
+      setScale(Math.min(sx, sy, 1));
+    }
+
+    computeScale();
+    window.addEventListener("resize", computeScale);
+    return () => window.removeEventListener("resize", computeScale);
+  }, []);
+
+  /* --- typewriter --- */
+  const typeText = (step) => new Promise(resolve => {
+    let i = 0;
+    if (step.show?.length > 0) setDisplayTexts({});
+    const maxLen = step.texts
+      ? Math.max(...Object.values(step.texts).map(t => t.length))
+      : (step.text ? step.text.length : 0);
+
+    if (maxLen === 0) { setTimeout(resolve, 600); return; }
+
+    const iv = setInterval(() => {
+      if (step.show?.length > 0) {
+        const nxt = {};
+        if (step.texts) { for (const [nId, txt] of Object.entries(step.texts)) nxt[nId] = txt.slice(0, i); }
+        else { step.show.forEach(nId => { nxt[nId] = step.text.slice(0, i); }); }
+        setDisplayTexts(nxt);
+      }
+      i++;
+      if (i > maxLen) { clearInterval(iv); setTimeout(resolve, 600); }
+    }, 15);
+  });
+
+  /* --- edge draw (timing only — visual handled by CSS class) --- */
+  const animateEdge = (id) => new Promise(resolve => {
+    let p = 0;
+    const iv = setInterval(() => {
+      p += 4;
+      if (p >= 100) { clearInterval(iv); resolve(); }
+    }, 15);
+  });
+
+  /* --- main flow --- */
+  const runFlow = async () => {
+    for (const step of steps) {
+      if (step.show?.length > 0) {
+        setActiveWaitNodes(step.show);
+        setVisibleNodes(prev => [...prev, ...step.show]);
+      }
+      await typeText(step);
+      if (step.edges) await Promise.all(step.edges.map(animateEdge));
+      if (step.waitTime) await new Promise(r => setTimeout(r, step.waitTime));
+      if (step.show?.length > 0) setCompletedNodes(prev => [...prev, ...step.show]);
+    }
+    setActiveWaitNodes([]);
+    await new Promise(r => setTimeout(r, 2500));
+    navigate('/comparison', { state: { submissionId } });
+  };
+
+  // ✅ useEffect placed AFTER runFlow declaration to avoid ReferenceError
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { runFlow(); }, []);
+
+  /* ================================================================ */
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50" style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-      {/* ── Header ── */}
-      <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => navigate('/')}
-                title="Home"
-                className="text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
-              </button>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">AI Risk Intelligence Engine</h1>
-                <p className="text-xs text-gray-500 mt-0.5">Processing multi-layer underwriting signals in real time.</p>
-              </div>
-            </div>
-            <span className="text-sm font-mono font-bold text-blue-600">{progress}%</span>
-          </div>
-
-          {/* Phase pills */}
-          <div className="flex items-center gap-2 mb-2">
-            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
-              phase === 1
-                ? 'bg-blue-600 border-blue-600 text-white'
-                : 'bg-green-100 border-green-300 text-green-700'
-            }`}>
-              {phase > 1
-                ? <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                : <span className="w-3 h-3 flex items-center justify-center"><span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /></span>
-              }
-              Phase 1 — Property Insights
-            </div>
-            <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
-              phase === 2
-                ? done
-                  ? 'bg-green-100 border-green-300 text-green-700'
-                  : 'bg-blue-600 border-blue-600 text-white'
-                : 'bg-gray-100 border-gray-200 text-gray-400'
-            }`}>
-              {done
-                ? <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                : phase === 2
-                  ? <span className="w-3 h-3 flex items-center justify-center"><span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /></span>
-                  : <span className="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block" />
-              }
-              Phase 2 — Quote Propensity
-            </div>
-          </div>
-
-          {/* Progress bar */}
-          <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <p className="text-xs text-gray-400 mt-1">{currentDetail}</p>
-        </div>
-      </div>
-
-      {/* ── 6 Property thumbnail strip ── */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-        <div className="grid grid-cols-6 gap-2">
-          {propertiesStream.map((prop, pi) => {
-            const status  = propStatuses[pi];
-            const isActive = pi === activePropIdx;
-            return (
-              <div
-                key={prop.id}
-                className={`relative rounded-lg overflow-hidden border-2 transition-all duration-300 ${
-                  isActive
-                    ? 'border-blue-500 shadow-md shadow-blue-100'
-                    : status.p2Done
-                      ? 'border-green-400'
-                      : status.p1Done
-                        ? 'border-blue-200'
-                        : 'border-gray-200'
-                }`}
-              >
-                <img
-                  src={prop.imageUrl}
-                  alt={`Property ${prop.id}`}
-                  className="w-full h-16 object-cover"
-                />
-                {/* Property ID badge */}
-                <div className="absolute top-1 left-1 bg-blue-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded leading-none">
-                  {prop.id}
-                </div>
-                {/* Status overlay */}
-                {isActive && !status.p2Done && (
-                  <div className="absolute top-1 right-1">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
-                    </span>
-                  </div>
-                )}
-                {status.p2Done && (
-                  <div className="absolute top-1 right-1 bg-green-500 rounded-full w-4 h-4 flex items-center justify-center">
-                    <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                )}
-                {status.p1Done && !status.p2Done && !isActive && (
-                  <div className="absolute top-1 right-1 bg-blue-100 rounded-full w-4 h-4 flex items-center justify-center">
-                    <span className="text-[8px] text-blue-700 font-bold">P1</span>
-                  </div>
-                )}
-                {/* Bottom label */}
-                <div className="bg-black/50 text-white text-[9px] text-center py-0.5 font-medium">
-                  {prop.county.split(' ')[0]}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Main content ── */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col lg:flex-row gap-4">
-
-        {/* LEFT: Step feed */}
-        <div className="flex-1 space-y-2 min-w-0">
-
-          {/* Phase + property heading */}
-          <div className="flex items-center gap-2">
-            <span className="text-base">{feedPhase === 1 ? '🛰' : '🧠'}</span>
-            <h2 className="text-sm font-semibold text-gray-700">
-              {feedPhase === 1 ? 'Property Insights Model' : 'Quote Propensity Model'}
-              {' — '}
-              <span className="text-blue-600">Property {currentFeedProp?.id}</span>
-              {' '}
-              <span className="text-gray-400 font-normal text-xs">({currentFeedProp?.county})</span>
-            </h2>
-          </div>
-
-          {/* Steps */}
-          {allPhaseSteps.map((step, si) => {
-            const done = feedSteps.find((s) => s.stepId === step.id);
-            const isPending = !done;
-            return (
-              <div
-                key={step.id}
-                className={`flex items-start gap-3 p-3 rounded-lg border transition-all duration-300 ${
-                  done
-                    ? 'bg-white border-blue-100 shadow-sm'
-                    : 'bg-white/40 border-gray-200/60'
-                }`}
-              >
-                {/* Circle */}
-                <div className="flex-shrink-0 mt-0.5">
-                  {done ? (
-                    <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center">
-                      <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  ) : (
-                    <div className="w-5 h-5 rounded-full border-2 border-gray-300 flex items-center justify-center">
-                      <div className="w-2 h-2 rounded-full bg-gray-300" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Text */}
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${done ? 'text-gray-900' : 'text-gray-400'}`}>
-                    {step.label}
-                  </p>
-                  {done && (
-                    <>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        <span className="font-medium text-gray-500">Input:</span> {done.inputText}
-                      </p>
-                      <p className="text-xs mt-1">
-                        <span className="font-medium text-gray-500">Output:</span>{' '}
-                        {/* Last step of each phase gets a colored badge */}
-                        {(step.id === 'p1s5' || step.id === 'p2s6') ? (
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-semibold ${
-                            step.id === 'p1s5'
-                              ? riskBadge(currentFeedProp?.aiRisk)
-                              : propBadge(currentFeedProp?.propensityCategory)
-                          }`}>
-                            {done.outputText}
-                          </span>
-                        ) : (
-                          <span className="text-gray-700">{done.outputText}</span>
-                        )}
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Done banner */}
-          {done && (
-            <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-4 py-3 mt-2">
-              <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+      {/* Shared header — matches TriagePage, DecisionComparison, etc. */}
+      <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50" style={{ flexShrink: 0 }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/')}
+              title="Home"
+              className="text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
               </svg>
-              <span className="text-sm text-green-700 font-medium">Pipeline complete — navigating to comparison view…</span>
-              <div className="ml-auto animate-spin rounded-full h-4 w-4 border-b-2 border-green-600" />
+            </button>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">AI Risk Intelligence Pipeline</h1>
+              <p className="text-xs text-gray-500 mt-0.5">Processing multi-layer underwriting signals in real time.</p>
             </div>
-          )}
-        </div>
-
-        {/* RIGHT: Activity log */}
-        <div className="lg:w-64 flex flex-col">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Activity Log</h3>
-            {!done && (
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
-              </span>
-            )}
           </div>
-          <div
-            ref={logRef}
-            className="flex-1 bg-white border border-gray-200 rounded-lg p-3 overflow-y-auto max-h-[520px] font-mono text-xs space-y-1.5 shadow-sm"
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-blue-600 transition-colors"
           >
-            {logLines.map((line, i) => (
-              <div key={i} className="flex items-start gap-2 text-gray-700 animate-fadeIn">
-                <span className="text-green-500 flex-shrink-0 font-bold">[✔]</span>
-                <span>{line}</span>
-              </div>
-            ))}
-            {logLines.length === 0 && (
-              <span className="text-gray-400">Waiting for pipeline…</span>
-            )}
-          </div>
-          {!done && (
-            <p className="text-xs text-gray-400 mt-2 text-center">
-              Processing all 6 properties…
-            </p>
-          )}
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back
+          </button>
         </div>
       </div>
+
+      {/* Scaled canvas wrapper — centres the diagram and scales it to fit */}
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        padding: 12,
+      }}>
+        {/*
+          Two-layer trick:
+          - Outer div has the VISUAL (scaled) dimensions → flexbox centres this correctly
+          - Inner div is the full canvas, scaled from top-left origin
+        */}
+        <div style={{
+          width: CANVAS_W * scale,
+          height: CANVAS_H * scale,
+          position: 'relative',
+          flexShrink: 0,
+        }}>
+          <div style={{
+            position: 'absolute',
+            top: 0, left: 0,
+            width: CANVAS_W,
+            height: CANVAS_H,
+            transform: `scale(${scale})`,
+            transformOrigin: 'top left',
+          }}>
+
+            {/* SVG edges */}
+            <svg style={{ position: 'absolute', width: '100%', height: '100%', pointerEvents: 'none' }}>
+              <defs>
+                <marker id="arrowhead-progress" viewBox="0 0 10 10" markerWidth="4.5" markerHeight="4.5" refX="7" refY="5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#3b82f6" /></marker>
+                <marker id="arrowhead-completed" viewBox="0 0 10 10" markerWidth="4.5" markerHeight="4.5" refX="7" refY="5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#2563eb" /></marker>
+              </defs>
+
+              {edges.map(edge => {
+                if (edge.isDivEdge) {
+                  if (!visibleNodes.includes("riskScore")) return null;
+                } else {
+                  if (!visibleNodes.includes(edge.from) || !visibleNodes.includes(edge.to)) return null;
+                }
+
+                const fromObj = getNodeOrDiv(edge.from);
+                const toObj = getNodeOrDiv(edge.to);
+                if (!fromObj || !toObj) return null;
+
+                const pathD = generateCurve(fromObj, toObj);
+
+                let isCompleted = false;
+                if (edge.isDivEdge) {
+                  const fd = getDivision(edge.from), td = getDivision(edge.to);
+                  isCompleted = fd.nodes.every(n => completedNodes.includes(n)) &&
+                    td.nodes.every(n => completedNodes.includes(n));
+                } else {
+                  isCompleted = completedNodes.includes(edge.from) && completedNodes.includes(edge.to);
+                }
+
+                return (
+                  <path
+                    key={edge.id}
+                    d={pathD}
+                    className={`path-base ${isCompleted ? 'path-completed' : 'path-progress-flow'}`}
+                    markerEnd={`url(#${isCompleted ? 'arrowhead-completed' : 'arrowhead-progress'})`}
+                  />
+                );
+              })}
+            </svg>
+
+            {/* Divisions */}
+            {DIVISIONS.map(div => {
+              const isVisible = visibleNodes.some(n => div.nodes.includes(n));
+              if (!isVisible) return null;
+              const isProcessing = activeWaitNodes.some(n => div.nodes.includes(n));
+              const isCompleted = div.nodes.every(n => completedNodes.includes(n));
+
+              return (
+                <div
+                  key={div.id}
+                  className={`division-box fade-in ${isProcessing ? 'processing' : isCompleted ? 'completed' : ''}`}
+                  style={{ left: div.x, top: div.y, width: div.w, height: div.h, position: 'absolute' }}
+                >
+                  <div className="division-label">{div.label}</div>
+                </div>
+              );
+            })}
+
+            {/* Nodes */}
+            {nodes.map(node => {
+              const isVisible = visibleNodes.includes(node.id);
+              if (!isVisible) return null;
+              const isProcessing = activeWaitNodes.includes(node.id);
+              const isCompleted = completedNodes.includes(node.id);
+
+              return (
+                <div
+                  key={node.id}
+                  className={`node fade-in ${isProcessing ? 'processing' : isCompleted ? 'completed' : ''}`}
+                  style={{ left: node.x, top: node.y, position: 'absolute' }}
+                >
+                  <div className="node-icon-wrapper"><node.icon /></div>
+                  <div className="node-label">
+                    {isProcessing ? (displayTexts[node.id] || "") : node.label}
+                  </div>
+                  {isProcessing && (
+                    <div className="node-gif"><img src={PROCESSING_GIF} alt="processing" /></div>
+                  )}
+                  {isCompleted && !isProcessing && (
+                    <div className="node-gif node-check">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+          </div>{/* end inner scaled canvas */}
+        </div>{/* end outer sized wrapper */}
+
+      </div>{/* end flex centering container */}
     </div>
   );
-};
-
-export default PipelineAnimation;
+}
