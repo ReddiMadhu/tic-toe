@@ -1,0 +1,165 @@
+# Azure Deployment — UI Guide (Demo Setup)
+
+> This is a one-time manual upload for a demo. No pipelines needed.
+
+---
+
+## What You'll Deploy
+
+| # | App | Build Folder | Azure Service |
+|---|---|---|---|
+| 1 | **Backend API** | `backend/` | Azure Web App (Python) |
+| 2 | **Decision App** | `decision-app/dist/` | Azure Blob Storage (Static Website) |
+| 3 | **Landing Page** | `dist/` | Azure Blob Storage (Static Website) |
+
+---
+
+## Step 1 — Create a Resource Group
+
+1. Go to [portal.azure.com](https://portal.azure.com) → search **"Resource groups"**
+2. Click **+ Create**
+3. Name: `ai-conclave-rg` · Region: any (e.g. East US)
+4. Click **Review + Create → Create**
+
+---
+
+## Step 2 — Deploy the Backend (Azure Web App)
+
+### 2.1 — Create the Web App
+1. Search **"App Services"** → **+ Create → Web App**
+2. Fill in:
+
+   | Field | Value |
+   |---|---|
+   | Resource Group | `ai-conclave-rg` |
+   | Name | `ai-conclave-api` *(globally unique)* |
+   | Publish | Code |
+   | Runtime stack | **Python 3.11** |
+   | OS | Linux |
+   | Plan | **Free F1** (fine for 50 users) |
+
+3. Click **Review + Create → Create**
+
+### 2.2 — Set Startup Command
+1. Open the Web App → left menu → **Configuration → General settings**
+2. Set **Startup Command**:
+   ```
+   gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:8000
+   ```
+3. Click **Save**
+
+### 2.3 — Upload Backend Code via Portal
+1. Open the Web App → left menu → **Development Tools → Advanced Tools (Kudu)** → click **Go →**
+2. In Kudu: top menu → **Tools → Zip Push Deploy**
+3. Zip your `backend/` folder contents *(not the folder itself — select all files inside)*
+4. Drag & drop the ZIP onto the Kudu page
+
+> **Note:** Exclude `myenv/` and `__pycache__/` from the zip — only include your [.py](file:///c:/Users/madhu/Desktop/ai-cloncave/backend/main.py) files, [requirements.txt](file:///c:/Users/madhu/Desktop/ai-cloncave/backend/requirements.txt), and `routers/`, [ml/](file:///c:/Users/madhu/Desktop/ai-cloncave/index.html) folders.
+
+### 2.4 — Note your Backend URL
+```
+https://ai-conclave-api.azurewebsites.net
+```
+Visit it — you should see `{"message": "Underwriting Intelligence API is running"}`
+
+---
+
+## Step 3 — Build & Deploy Decision App
+
+### 3.1 — Update [.env](file:///c:/Users/madhu/Desktop/ai-cloncave/.env) and build locally
+Edit [decision-app/.env](file:///c:/Users/madhu/Desktop/ai-cloncave/decision-app/.env):
+```env
+VITE_API_BASE_URL=https://ai-conclave-api.azurewebsites.net
+```
+Then build:
+```bash
+cd decision-app
+npm install
+npm run build
+```
+Output is in `decision-app/dist/`
+
+### 3.2 — Create Storage Account in Portal
+1. Search **"Storage accounts"** → **+ Create**
+2. Fill in:
+
+   | Field | Value |
+   |---|---|
+   | Resource Group | `ai-conclave-rg` |
+   | Name | `aiconclavedecision` *(lowercase, unique)* |
+   | Region | Same as above |
+   | Redundancy | LRS |
+
+3. Click **Review + Create → Create**
+
+### 3.3 — Enable Static Website
+1. Open the storage account → left menu → **Data Management → Static website**
+2. Toggle **Enabled**
+3. Index document: [index.html](file:///c:/Users/madhu/Desktop/ai-cloncave/index.html) · Error document: [index.html](file:///c:/Users/madhu/Desktop/ai-cloncave/index.html)
+4. Click **Save**
+5. **Copy the Primary endpoint** (e.g. `https://aiconclavedecision.z13.web.core.windows.net`) — save this!
+
+### 3.4 — Upload the Build Files
+1. Left menu → **Data storage → Containers** → click **`$web`**
+2. Click **Upload** → select **all files inside** `decision-app/dist/`
+   - ⚠️ Also upload the `assets/` subfolder — click **Advanced** → tick **"Upload to folder"** and type `assets` for the assets folder
+3. For the correct structure, upload in two passes:
+   - Upload root files ([index.html](file:///c:/Users/madhu/Desktop/ai-cloncave/index.html), etc.) directly
+   - Upload `assets/` folder contents with folder path `assets`
+
+> **Easier way:** Use [Azure Storage Explorer](https://azure.microsoft.com/en-us/products/storage/storage-explorer/) (free desktop app) → drag & drop the entire `dist/` folder into `$web`
+
+---
+
+## Step 4 — Build & Deploy Landing Page
+
+### 4.1 — Update [.env](file:///c:/Users/madhu/Desktop/ai-cloncave/.env) and build locally
+Edit [c:\Users\madhu\Desktop\ai-cloncave\.env](file:///c:/Users/madhu/Desktop/ai-cloncave/.env):
+```env
+VITE_API_BASE_URL=https://ai-conclave-api.azurewebsites.net
+VITE_DECISION_APP_URL=https://aiconclavedecision.z13.web.core.windows.net
+```
+Then build:
+```bash
+cd c:\Users\madhu\Desktop\ai-cloncave
+npm install
+npm run build
+```
+Output is in `dist/`
+
+### 4.2 — Create Storage Account for Landing Page
+Repeat Step 3.2 with name: `aiconclavelanding`
+
+### 4.3 — Enable Static Website
+Repeat Step 3.3 for `aiconclavelanding`
+
+### 4.4 — Upload Build Files
+Same as Step 3.4 — upload contents of `dist/` into the `$web` container.
+
+> Use **Azure Storage Explorer** for easiest drag & drop upload.
+
+---
+
+## Step 5 — Update Backend CORS
+
+1. Open [backend/main.py](file:///c:/Users/madhu/Desktop/ai-cloncave/backend/main.py) and update:
+   ```python
+   allow_origins=[
+       "https://aiconclavedecision.z13.web.core.windows.net",
+       "https://aiconclavelanding.z13.web.core.windows.net",
+   ],
+   ```
+2. Re-zip and re-upload the backend (repeat Step 2.3)
+
+---
+
+## Final URLs
+
+| Service | URL |
+|---|---|
+| 🌐 Landing Page | `https://aiconclavelanding.z13.web.core.windows.net` |
+| 📱 Decision App (QR) | `https://aiconclavedecision.z13.web.core.windows.net` |
+| ⚙️ Backend API | `https://ai-conclave-api.azurewebsites.net` |
+
+> [!TIP]
+> **Azure Storage Explorer** (free desktop app) makes uploading the `dist/` folders much easier than the Portal UI. [Download here](https://azure.microsoft.com/en-us/products/storage/storage-explorer/)
