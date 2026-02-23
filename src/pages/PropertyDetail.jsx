@@ -140,11 +140,21 @@ const PropertyDetail = () => {
     { label: 'Construction Risk', score: construction_risk_score },
   ];
 
-  const maxShap = Math.max(...shap_values.map((s) => s.mean_abs_shap ?? Math.abs(s.contribution ?? 0)));
-  // Sort by mean_abs_shap descending
-  const sortedShap = [...shap_values].sort((a, b) =>
-    (b.mean_abs_shap ?? Math.abs(b.contribution ?? 0)) - (a.mean_abs_shap ?? Math.abs(a.contribution ?? 0))
-  );
+  // Separate top 5 positive and top 5 negative SHAP drivers
+  const shapList = shap_values.map(s => ({
+    feature: s.feature,
+    val: s.mean_abs_shap ?? s.contribution ?? 0
+  }));
+
+  const posDrivers = shapList.filter(s => s.val > 0)
+    .sort((a, b) => b.val - a.val)
+    .slice(0, 6);
+  const negDrivers = shapList.filter(s => s.val < 0)
+    .sort((a, b) => a.val - b.val)
+    .slice(0, 6);
+
+  const displayShap = [...posDrivers, ...negDrivers];
+  const maxShap = Math.max(...displayShap.map((s) => Math.abs(s.val)), 0.001);
 
   const selectionIcon = user_selection === 'prioritized' ? '🟢' : user_selection === 'discarded' ? '🔴' : '⚪';
   const selectionLabel = user_selection === 'prioritized' ? 'Prioritized' : user_selection === 'discarded' ? 'Discarded' : 'Not Selected';
@@ -339,17 +349,19 @@ const PropertyDetail = () => {
             <div className="p-4 flex-1">
               <p className="text-xs font-semibold text-gray-700 mb-3">What Influenced the AI Prediction</p>
               <div className="space-y-1.5">
-                {sortedShap.map((shap, i) => {
-                  const val = shap.mean_abs_shap ?? Math.abs(shap.contribution ?? 0);
-                  const pct = maxShap > 0 ? (val / maxShap) * 100 : 0;
+                {displayShap.map((shap, i) => {
+                  const val = shap.val;
+                  const isNeg = val < 0;
+                  const absVal = Math.abs(val);
+                  const pct = (absVal / maxShap) * 100;
                   return (
                     <div key={i} className="flex items-center gap-2">
                       <span className="text-[10px] text-gray-500 w-44 truncate text-right flex-shrink-0">
-                        {shap.feature.replace(/_/g, ' ')} ({val.toFixed(3)})
+                        {shap.feature.replace(/_/g, ' ')} ({isNeg ? '' : '+'}{val.toFixed(3)})
                       </span>
-                      <div className="flex-1 h-4 bg-gray-100 rounded-sm overflow-hidden">
+                      <div className="flex-1 h-4 bg-gray-100 rounded-sm overflow-hidden flex">
                         <div
-                          className="h-full rounded-sm transition-all duration-500 bg-green-600"
+                          className={`h-full rounded-sm transition-all duration-500 ${isNeg ? 'bg-red-500' : 'bg-green-600'}`}
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -359,10 +371,14 @@ const PropertyDetail = () => {
               </div>
 
               {/* Legend */}
-              <div className="mt-4 pt-3 border-t border-gray-100 space-y-1">
+              <div className="mt-4 pt-3 border-t border-gray-100 space-y-1 flex gap-4">
                 <div className="flex items-center gap-2 text-[10px] text-gray-500">
                   <div className="w-6 h-2.5 rounded-sm bg-green-600 flex-shrink-0"></div>
-                  <span>Green → Mean Absolute SHAP (feature importance)</span>
+                  <span>Green → Positive Driver</span>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                  <div className="w-6 h-2.5 rounded-sm bg-red-500 flex-shrink-0"></div>
+                  <span>Red → Negative Driver</span>
                 </div>
               </div>
             </div>
