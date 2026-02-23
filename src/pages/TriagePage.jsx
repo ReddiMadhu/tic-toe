@@ -56,8 +56,10 @@ const TriagePage = () => {
     return 'Low';
   };
 
-  // Filter by tier derived from quote_propensity_label
-  const filteredProperties = properties.filter((p) => getTier(p.quote_propensity_label) === tierKey);
+  // Filter out excluded properties, then filter by tier derived from quote_propensity_label
+  const filteredProperties = properties
+    .filter((p) => !p.excluded)
+    .filter((p) => getTier(p.quote_propensity_label) === tierKey);
 
   const handleSendLetter = async (letterType) => {
     if (!letterModal) return;

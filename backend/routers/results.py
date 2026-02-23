@@ -74,11 +74,18 @@ MOCK_PREDICTIONS = [
         "quote_propensity_probability": 0.4319356302,
         "quote_propensity": "Mid Propensity",
         "excluded": True,
-        "exclusion_reason": "Property exceeds the underwriting threshold for structural vulnerability. Critical roof damage, foundation cracks, and proximity to active fault lines place this property outside acceptable risk bounds.",
+        "exclusion_reason": "Contents coverage of $9,000 is below the product minimum of $10,000. Annual income of $8,000 falls below the acceptable underwriting threshold of $10,000.",
         "exclusion_parameters": [
-            {"name": "Property Vulnerability Risk", "value": 95},
-            {"name": "Coverage Risk", "value": 78},
-            {"name": "Locality Risk", "value": 43},
+            {
+                "label": "Contents coverage below product minimum",
+                "description": "Contents coverage limit <= 10,000 and has fine arts coverage",
+                "value": "$9,000",
+            },
+            {
+                "label": "Client income below acceptable threshold",
+                "description": "Annual income < 10,000",
+                "value": "$8,000",
+            },
         ],
     },
     {

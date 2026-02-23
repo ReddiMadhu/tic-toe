@@ -107,6 +107,10 @@ def send_triage_emails(request: TriageRequest):
     tiers: dict[str, list[str]] = {"High": [], "Mid": [], "Low": []}
     for i, prop in enumerate(properties[:6]):
         if i < len(POSITION_PROPENSITY):
+            # Skip excluded properties
+            pred = MOCK_PREDICTIONS[i]
+            if pred.get("excluded", False):
+                continue
             tier = POSITION_PROPENSITY[i]["tier"]
             tiers[tier].append(prop["submission_id"])
 
@@ -204,17 +208,23 @@ def send_letter(request: LetterRequest):
 
 @router.get("/properties")
 def get_triage_properties():
-    """Return all 6 properties merged with propensity data from MOCK_PREDICTIONS (by position)."""
+    """Return all 6 properties merged with propensity data from MOCK_PREDICTIONS (by position).
+    Excluded properties are omitted from the triage list.
+    """
     properties = get_properties()
     result = []
     for i, prop in enumerate(properties[:6]):
         if i >= len(MOCK_PREDICTIONS):
             break
         pred = MOCK_PREDICTIONS[i]
+        # Skip excluded properties — they should not appear in triage pages
+        if pred.get("excluded", False):
+            continue
         result.append({
             **prop,
             "quote_propensity": pred["quote_propensity_probability"],
             "quote_propensity_label": pred["quote_propensity"],
+            "excluded": False,
         })
     return result
 
