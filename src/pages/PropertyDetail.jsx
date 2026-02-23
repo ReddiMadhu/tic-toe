@@ -88,8 +88,8 @@ const PropertyDetail = () => {
   const propertyResult = fromTriage
     ? (triageResult || null)
     : (passedPropertyResult
-        || results?.results?.find((r) => r.submission_id === id)
-        || results?.results?.[0]);
+      || results?.results?.find((r) => r.submission_id === id)
+      || results?.results?.[0]);
 
   const propIndex = propertyResult?.property_index ?? 0;
   const property = passedProperty || propertiesList[propIndex] || propertiesList[0];
@@ -125,19 +125,19 @@ const PropertyDetail = () => {
   // Color based purely on quote_propensity_label — no ai_risk
   const propensityColorMap = {
     'High Propensity': { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300' },
-    'Mid Propensity':  { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-300' },
-    'Low Propensity':  { bg: 'bg-red-100',   text: 'text-red-700',   border: 'border-red-300'   },
+    'Mid Propensity': { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-300' },
+    'Low Propensity': { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-300' },
   };
   const propColor = propensityColorMap[quote_propensity_label] || propensityColorMap['Mid Propensity'];
 
   // Real risk breakdown from prediction data (scores out of 100)
   const riskBreakdown = [
     { label: 'Property Vulnerability Risk', score: property_vulnerability_risk, hasView: true },
-    { label: 'Property Condition Risk',     score: property_condition_risk },
-    { label: 'Locality Risk',               score: locality_risk },
-    { label: 'Claim History Risk',          score: claim_history_risk },
-    { label: 'Coverage Risk',               score: coverage_risk },
-    { label: 'Construction Risk',           score: construction_risk_score },
+    { label: 'Property Condition Risk', score: property_condition_risk },
+    { label: 'Locality Risk', score: locality_risk },
+    { label: 'Claim History Risk', score: claim_history_risk },
+    { label: 'Coverage Risk', score: coverage_risk },
+    { label: 'Construction Risk', score: construction_risk_score },
   ];
 
   const maxShap = Math.max(...shap_values.map((s) => s.mean_abs_shap ?? Math.abs(s.contribution ?? 0)));
@@ -151,30 +151,30 @@ const PropertyDetail = () => {
   const selectionCls = user_selection === 'prioritized'
     ? 'bg-green-50 text-green-700 border-green-300'
     : user_selection === 'discarded'
-    ? 'bg-red-50 text-red-600 border-red-300'
-    : 'bg-gray-100 text-gray-500 border-gray-300';
+      ? 'bg-red-50 text-red-600 border-red-300'
+      : 'bg-gray-100 text-gray-500 border-gray-300';
 
   // Use result data where richer; fall back to property static fields
   const displayOccupancy = res_occupancy || property.occupancy_type;
-  const displayChannel   = res_channel   || property.submission_channel;
-  const displayCover     = res_cover     || property.cover_type;
-  const displayState     = property_state || property.state;
+  const displayChannel = res_channel || property.submission_channel;
+  const displayCover = res_cover || property.cover_type;
+  const displayState = property_state || property.state;
 
   // Property params for table (2 rows) — mix static + result fields
   const paramRow1 = [
-    { label: 'Sub ID',     value: propertyResult.submission_id },
-    { label: 'Channel',    value: displayChannel },
-    { label: 'Occupancy',  value: displayOccupancy },
-    { label: 'County',     value: property.property_county },
-    { label: 'State',      value: displayState },
-    { label: 'Age',        value: `${property.property_age} yrs` },
-    { label: 'Value',      value: formatCurrency(property.property_value) },
+    { label: 'Sub ID', value: propertyResult.submission_id },
+    { label: 'Channel', value: displayChannel },
+    { label: 'Occupancy', value: displayOccupancy },
+    { label: 'County', value: property.property_county },
+    { label: 'State', value: displayState },
+    { label: 'Age', value: `${property.property_age} yrs` },
+    { label: 'Value', value: formatCurrency(property.property_value) },
   ];
   const paramRow2 = [
-    { label: 'Cover',      value: displayCover },
-    { label: 'Building',   value: formatCurrencyShort(property.building_coverage_limit) },
-    { label: 'Contents',   value: formatCurrencyShort(property.contents_coverage_limit) },
-    { label: 'Broker',     value: property.broker_company },
+    { label: 'Cover', value: displayCover },
+    { label: 'Building', value: formatCurrencyShort(property.building_coverage_limit) },
+    { label: 'Contents', value: formatCurrencyShort(property.contents_coverage_limit) },
+    { label: 'Broker', value: property.broker_company },
     { label: 'Risk Score', value: total_risk_score },
   ];
 
@@ -186,7 +186,7 @@ const PropertyDetail = () => {
     try {
       await sendLetterOfIntent({
         submissionId: property.submission_id,
-        brokerEmail: property.broker_email || 'broker@uwt.org',
+        applicantEmail: property.applicant_email || '',
         brokerCompany: property.broker_company || '',
         propertyCounty: property.property_county || '',
         letterType,
@@ -372,7 +372,7 @@ const PropertyDetail = () => {
           <div className="rounded-lg overflow-hidden border border-gray-300 bg-white shadow-sm flex flex-col">
             <SectionBar
               title="Property Risk Breakdown (Structured Risks)"
-              
+
             />
             <div className="p-4 flex-1">
               <p className="text-sm font-bold text-gray-800 mb-3">
@@ -391,24 +391,24 @@ const PropertyDetail = () => {
                   {riskBreakdown.map(({ label, score, hasView }) => {
                     const scoreColor = (score ?? 0) >= 70 ? 'text-red-600' : (score ?? 0) >= 40 ? 'text-amber-600' : 'text-green-600';
                     return (
-                    <tr key={label} className="hover:bg-gray-50">
-                      <td className="py-2 text-gray-700 font-medium">{label}</td>
-                      <td className="py-2 w-16">
-                        <span className={`font-mono font-semibold text-sm ${scoreColor}`}>{score ?? '—'}</span>
-                      </td>
-                      <td className="py-2 text-right">
-                        {hasView ? (
-                          <button
-                            onClick={() => setShowVulnerabilityPopup(true)}
-                            className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors shadow-sm"
-                          >
-                            View
-                          </button>
-                        ) : (
-                          <span className="text-gray-300">—</span>
-                        )}
-                      </td>
-                    </tr>
+                      <tr key={label} className="hover:bg-gray-50">
+                        <td className="py-2 text-gray-700 font-medium">{label}</td>
+                        <td className="py-2 w-16">
+                          <span className={`font-mono font-semibold text-sm ${scoreColor}`}>{score ?? '—'}</span>
+                        </td>
+                        <td className="py-2 text-right">
+                          {hasView ? (
+                            <button
+                              onClick={() => setShowVulnerabilityPopup(true)}
+                              className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors shadow-sm"
+                            >
+                              View
+                            </button>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
+                      </tr>
                     );
                   })}
                 </tbody>
@@ -441,7 +441,7 @@ const PropertyDetail = () => {
         </div>
 
       </div>
-      
+
       {letterModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
@@ -473,13 +473,13 @@ const PropertyDetail = () => {
                 <span className="font-semibold text-gray-800">{property.broker_company || '—'}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-gray-500 w-16 flex-shrink-0">Email</span>
-                <span className="font-medium text-blue-700">{property.broker_email || 'broker@uwt.org'}</span>
+                <span className="text-gray-500 w-20 flex-shrink-0">Applicant Email</span>
+                <span className="font-medium text-blue-700">{property.applicant_email || '—'}</span>
               </div>
             </div>
             {letterResult === 'sent' && (
               <div className="mb-4 bg-green-50 border border-green-200 text-green-800 text-sm rounded-lg px-4 py-2.5 text-center font-medium">
-                Email sent to {property.broker_email || 'broker@uwt.org'}
+                Email sent to {property.applicant_email || '—'}
               </div>
             )}
             {letterResult === 'error' && (
@@ -521,7 +521,7 @@ const PropertyDetail = () => {
             )}
           </div>
         </div>
-        
+
       )}
     </div>
 

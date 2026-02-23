@@ -4,7 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 
 const LandingPage = () => {
   const navigate = useNavigate();
-  const decisionUrl = `${window.location.origin}/decision`;
+  const decisionUrl = import.meta.env.VITE_DECISION_APP_URL || `${window.location.origin}/decision`;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/40 to-slate-100 flex items-center justify-center p-6">

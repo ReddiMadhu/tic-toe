@@ -5,13 +5,13 @@ import { fetchTriageProperties, sendLetterOfIntent } from '../services/api';
 const TIER_LABEL = { high: 'High', mid: 'Mid', low: 'Low' };
 const TIER_BADGE = {
   High: 'bg-green-100 text-green-700 border-green-300',
-  Mid:  'bg-amber-100 text-amber-700 border-amber-200',
-  Low:  'bg-red-100 text-red-700 border-red-200',
+  Mid: 'bg-amber-100 text-amber-700 border-amber-200',
+  Low: 'bg-red-100 text-red-700 border-red-200',
 };
 const TIER_SCORE_COLOR = {
   High: 'text-green-600',
-  Mid:  'text-amber-600',
-  Low:  'text-red-600',
+  Mid: 'text-amber-600',
+  Low: 'text-red-600',
 };
 
 const formatCurrency = (value) => {
@@ -66,7 +66,7 @@ const TriagePage = () => {
     try {
       await sendLetterOfIntent({
         submissionId: letterModal.submission_id,
-        brokerEmail: letterModal.broker_email || 'broker@uwt.org',
+        applicantEmail: letterModal.applicant_email || '',
         brokerCompany: letterModal.broker_company || '',
         propertyCounty: letterModal.property_county || '',
         letterType,
@@ -294,15 +294,15 @@ const TriagePage = () => {
                 <span className="font-semibold text-gray-800">{letterModal.broker_company || '—'}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-gray-500 w-16 flex-shrink-0">Email</span>
-                <span className="font-medium text-blue-700">{letterModal.broker_email || 'broker@uwt.org'}</span>
+                <span className="text-gray-500 w-20 flex-shrink-0">Applicant Email</span>
+                <span className="font-medium text-blue-700">{letterModal.applicant_email || '—'}</span>
               </div>
             </div>
 
             {/* Success / Error */}
             {letterResult === 'sent' && (
               <div className="mb-4 bg-green-50 border border-green-200 text-green-800 text-sm rounded-lg px-4 py-2.5 text-center font-medium">
-                Email sent to {letterModal.broker_email || 'broker@uwt.org'}
+                Email sent to {letterModal.applicant_email || '—'}
               </div>
             )}
             {letterResult === 'error' && (

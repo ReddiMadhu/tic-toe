@@ -172,6 +172,7 @@ def get_properties():
                 "contents_coverage_limit": _clean(record.get("contents_coverage_limit"), mock.get("contents_coverage_limit")),
                 "broker_company": _clean(record.get("broker_company"), mock.get("broker_company")),
                 "broker_email": _clean(record.get("broker_email"), mock.get("broker_email", "broker@uwt.org")),
+                "applicant_email": _clean(record.get("Applicant_Email"), ""),
                 # Visual/risk fields always from mock
                 "construction_risk": mock.get("construction_risk"),
                 "state": mock.get("state"),

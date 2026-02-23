@@ -37,7 +37,7 @@ class TriageRequest(BaseModel):
 
 class LetterRequest(BaseModel):
     submissionId: str
-    brokerEmail: str
+    applicantEmail: str
     brokerCompany: Optional[str] = ""
     propertyCounty: Optional[str] = ""
     letterType: str  # "intent" or "not_interested"
@@ -186,7 +186,7 @@ def send_letter(request: LetterRequest):
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = smtp_user
-    msg["To"] = request.brokerEmail
+    msg["To"] = request.applicantEmail
     msg.attach(MIMEText(plain, "plain"))
     msg.attach(MIMEText(html, "html"))
 
@@ -195,7 +195,7 @@ def send_letter(request: LetterRequest):
             server.ehlo()
             server.starttls()
             server.login(smtp_user, smtp_pass)
-            server.sendmail(smtp_user, request.brokerEmail, msg.as_string())
+            server.sendmail(smtp_user, request.applicantEmail, msg.as_string())
     except Exception as exc:
         return {"status": "error", "reason": str(exc)}
 
