@@ -173,6 +173,9 @@ def get_properties():
                 "broker_company": _clean(record.get("broker_company"), mock.get("broker_company")),
                 "broker_email": _clean(record.get("broker_email"), mock.get("broker_email", "broker@uwt.org")),
                 "applicant_email": _clean(record.get("Applicant_Email"), ""),
+                "income": _clean(record.get("income"), mock.get("income", 150000)),
+                "property_past_loss_freq": _clean(record.get("property_past_loss_freq"), mock.get("property_past_loss_freq", 0)),
+                "property_past_claim_amount": _clean(record.get("property_past_claim_amount"), mock.get("property_past_claim_amount", 0)),
                 # Visual/risk fields always from mock
                 "construction_risk": mock.get("construction_risk"),
                 "state": mock.get("state"),

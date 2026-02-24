@@ -16,10 +16,10 @@ const CANVAS_H = 780;
 
 /* ---------------- NODES & DIVISIONS ---------------- */
 const DIVISIONS = [
-  { id: "div1", label: "Property Insights", nodes: ["address", "imagery", "frontRoof", "objectDetect", "threat", "proximity", "vulnerability"], x: 90, y: 110, w: 610, h: 580 },
-  { id: "div2", label: "Submission Details", nodes: ["submission", "exclusion"], x: 790, y: 110, w: 310, h: 220 },
-  { id: "div3", label: "Quote Propensity", nodes: ["riskScore", "propensityScore", "propensityLevel"], x: 790, y: 370, w: 310, h: 320 },
-  { id: "div4", label: "Broker Profiles", nodes: ["broker"], x: 1190, y: 350, w: 310, h: 100 }
+  { id: "div1", label: "Property Insights", nodes: ["address", "imagery", "frontRoof", "objectDetect", "threat", "proximity", "vulnerability"], x: 90, y: 110, w: 610, h: 630 },
+  { id: "div2", label: "Submission Details", nodes: ["submission", "exclusion"], x: 790, y: 110, w: 310, h: 250 },
+  { id: "div3", label: "Quote Propensity", nodes: ["riskScore", "propensityScore", "propensityLevel"], x: 790, y: 410, w: 310, h: 330 },
+  { id: "div4", label: "Broker Profiles", nodes: ["broker"], x: 1190, y: 410, w: 310, h: 100 }
 ];
 
 const nodes = [
@@ -44,16 +44,16 @@ const nodes = [
   },
 
   /* Division 4 */
-  { id: "broker", label: "Broker Data", icon: Database, x: 1220, y: 390, div: "div4" },
+  { id: "broker", label: "Broker Data", icon: Database, x: 1220, y: 450, div: "div4" },
 
   /* Division 2 */
   { id: "submission", label: "Submission Details", icon: Database, x: 820, y: 150, div: "div2" },
   { id: "exclusion", label: "Excluding Properties based on configured rules", icon: ShieldAlert, x: 820, y: 250, div: "div2" },
 
   /* Division 3 */
-  { id: "riskScore", label: "Property Risk Score", icon: Target, x: 820, y: 410, div: "div3" },
-  { id: "propensityScore", label: "Underwriting Propensity Score", icon: Target, x: 820, y: 530, div: "div3" },
-  { id: "propensityLevel", label: "Propensity Level (High/Medium/Low)", icon: Target, x: 820, y: 630, div: "div3" },
+  { id: "riskScore", label: "Property Risk Score", icon: Target, x: 820, y: 450, div: "div3" },
+  { id: "propensityScore", label: "Underwriting Propensity Score", icon: Target, x: 820, y: 560, div: "div3" },
+  { id: "propensityLevel", label: "Propensity Level (High/Medium/Low)", icon: Target, x: 820, y: 650, div: "div3" },
 ];
 
 /* ---------------- EDGES ---------------- */

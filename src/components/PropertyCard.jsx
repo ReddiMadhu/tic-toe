@@ -20,7 +20,10 @@ const PropertyCard = ({ property, onClick }) => {
     cover_type,
     building_coverage_limit,
     contents_coverage_limit,
-    broker_company
+    broker_company,
+    income,
+    property_past_loss_freq,
+    property_past_claim_amount
   } = property;
 
   // Format currency values
@@ -138,8 +141,35 @@ const PropertyCard = ({ property, onClick }) => {
             <span className="font-medium text-gray-700 truncate">{broker_company}</span>
           </div>
 
+          {/* Income */}
+          <div className="flex items-center space-x-1.5">
+            <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-gray-500 whitespace-nowrap">Income:</span>
+            <span className="font-bold text-gray-900">{formatCurrencyShort(income || 0)}</span>
+          </div>
+
+          {/* Loss Freq */}
+          <div className="flex items-center space-x-1.5">
+            <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
+            </svg>
+            <span className="text-gray-500 whitespace-nowrap">Loss Freq:</span>
+            <span className="font-semibold text-gray-800">{property_past_loss_freq || 0}</span>
+          </div>
+
+          {/* Claim Amt */}
+          <div className="flex items-center space-x-1.5">
+            <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-gray-500 whitespace-nowrap">Claim Amt:</span>
+            <span className="font-bold text-gray-900">{formatCurrencyShort(property_past_claim_amount || 0)}</span>
+          </div>
+
           {/* County */}
-          <div className="flex items-center space-x-1.5 col-span-2">
+          <div className="flex items-center space-x-1.5">
             <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
