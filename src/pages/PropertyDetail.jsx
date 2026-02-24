@@ -131,19 +131,20 @@ const PropertyDetail = () => {
   const propColor = propensityColorMap[quote_propensity_label] || propensityColorMap['Mid Propensity'];
 
   // Real risk breakdown from prediction data (scores out of 100)
-  const riskBreakdown = [
-    { label: 'Property Vulnerability Risk', score: property_vulnerability_risk, hasView: true },
-    { label: 'Property Condition Risk', score: property_condition_risk },
-    { label: 'Locality Risk', score: locality_risk },
-    { label: 'Claim History Risk', score: claim_history_risk },
-    { label: 'Coverage Risk', score: coverage_risk },
-    { label: 'Construction Risk', score: construction_risk_score },
+  const riskBreakdown = propertyResult.risk_breakdown || [
+    { label: 'Property Vulnerability Risk', score: property_vulnerability_risk, hasView: true, tooltipText: "Roof Condition: 75\nWildfire Proximity: High\nFlood Zone: Minimal" },
+    { label: 'Property Condition Risk', score: property_condition_risk, tooltipText: "Wood score: 80\nAge score: 20\nMaintenance: 15" },
+    { label: 'Locality Risk', score: locality_risk, tooltipText: "Crime Rate: 45\nFire Incident: 60\nProximity to Services: 30" },
+    { label: 'Claim History Risk', score: claim_history_risk, tooltipText: "Past Claims: 3\nSeverity: Low\nFrequency Score: 15" },
+    { label: 'Coverage Risk', score: coverage_risk, tooltipText: "Underinsurance Risk: 40\nLiability Exposure: 25" },
+    { label: 'Construction Risk', score: construction_risk_score, tooltipText: "Material Quality: 60\nCode Compliance: 40" },
   ];
 
   // Separate top 5 positive and top 5 negative SHAP drivers
   const shapList = shap_values.map(s => ({
     feature: s.feature,
-    val: s.mean_abs_shap ?? s.contribution ?? 0
+    val: s.mean_abs_shap ?? s.contribution ?? 0,
+    value: s.value
   }));
 
   const posDrivers = shapList.filter(s => s.val > 0)
@@ -370,7 +371,7 @@ const PropertyDetail = () => {
                           />
                         </div>
                         <span className="text-[10px] text-gray-400 w-12 flex-shrink-0 text-right">
-                          {Math.floor(Math.random() * 50) + 10}
+                          {shap.value || ''}
                         </span>
                       </div>
                     </div>
@@ -412,24 +413,8 @@ const PropertyDetail = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {riskBreakdown.map(({ label, score, hasView }) => {
+                  {riskBreakdown.map(({ label, score, hasView, tooltipText }) => {
                     const scoreColor = (score ?? 0) >= 70 ? 'text-red-600' : (score ?? 0) >= 40 ? 'text-amber-600' : 'text-green-600';
-
-                    // Generate mock breakdown data based on the label for the tooltip
-                    let tooltipText = "";
-                    if (label === 'Property Condition Risk') {
-                      tooltipText = "Wood score: 80\nAge score: 20\nMaintenance: 15";
-                    } else if (label === 'Locality Risk') {
-                      tooltipText = "Crime Rate: 45\nFire Incident: 60\nProximity to Services: 30";
-                    } else if (label === 'Claim History Risk') {
-                      tooltipText = "Past Claims: 3\nSeverity: Low\nFrequency Score: 15";
-                    } else if (label === 'Coverage Risk') {
-                      tooltipText = "Underinsurance Risk: 40\nLiability Exposure: 25";
-                    } else if (label === 'Construction Risk') {
-                      tooltipText = "Material Quality: 60\nCode Compliance: 40";
-                    } else if (label === 'Property Vulnerability Risk') {
-                      tooltipText = "Roof Condition: 75\nWildfire Proximity: High\nFlood Zone: Minimal";
-                    }
 
                     return (
                       <tr
