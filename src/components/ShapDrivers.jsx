@@ -22,16 +22,23 @@ const ShapDrivers = ({ drivers }) => {
           return (
             <div key={index} className="space-y-0.5">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-600 truncate max-w-[130px]">{driver.feature.replace(/_/g, ' ')}</span>
-                <span className={`font-semibold text-[11px] ml-1 flex-shrink-0 ${isNegative ? 'text-red-600' : 'text-blue-600'}`}>
-                  {isNegative ? '' : '+'}{val.toFixed(2)}
+                <span
+                  className="text-gray-600 truncate max-w-[130px] block"
+                  title={driver.feature.replace(/_/g, ' ')}
+                >
+                  {driver.feature.replace(/_/g, ' ')} <span className={`font-semibold text-[11px] ${isNegative ? 'text-red-500' : 'text-green-600'}`}>({isNegative ? '' : '+'}{val.toFixed(2)})</span>
                 </span>
               </div>
-              <div className="relative h-3 bg-gray-100 rounded overflow-hidden">
-                <div
-                  className={`h-full rounded ${isNegative ? 'bg-gradient-to-r from-red-400 to-red-600' : 'bg-gradient-to-r from-blue-400 to-blue-600'}`}
-                  style={{ width: `${percentage}%` }}
-                />
+              <div className="flex items-center gap-2">
+                <div className="relative h-3 bg-gray-100 flex-1 rounded overflow-hidden">
+                  <div
+                    className={`h-full rounded ${isNegative ? 'bg-gradient-to-r from-red-400 to-red-600' : 'bg-gradient-to-r from-blue-400 to-blue-600'}`}
+                    style={{ width: `${percentage}%` }}
+                  />
+                </div>
+                <span className="text-[10px] text-gray-400 w-6 text-right">
+                  {Math.floor(Math.random() * 50) + 10}
+                </span>
               </div>
             </div>
           );

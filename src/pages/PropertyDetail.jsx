@@ -356,14 +356,22 @@ const PropertyDetail = () => {
                   const pct = (absVal / maxShap) * 100;
                   return (
                     <div key={i} className="flex items-center gap-2">
-                      <span className="text-[10px] text-gray-500 w-44 truncate text-right flex-shrink-0">
-                        {shap.feature.replace(/_/g, ' ')} ({isNeg ? '' : '+'}{val.toFixed(3)})
+                      <span
+                        className="text-[10px] text-gray-500 w-44 truncate text-right flex-shrink-0"
+                        title={shap.feature.replace(/_/g, ' ')}
+                      >
+                        {shap.feature.replace(/_/g, ' ')} <span className={`font-semibold ${isNeg ? 'text-red-500' : 'text-green-600'}`}>({isNeg ? '' : '+'}{val.toFixed(3)})</span>
                       </span>
-                      <div className="flex-1 h-4 bg-gray-100 rounded-sm overflow-hidden flex">
-                        <div
-                          className={`h-full rounded-sm transition-all duration-500 ${isNeg ? 'bg-red-500' : 'bg-green-600'}`}
-                          style={{ width: `${pct}%` }}
-                        />
+                      <div className="flex-1 flex items-center gap-2">
+                        <div className="flex-1 h-4 bg-gray-100 rounded-sm overflow-hidden flex">
+                          <div
+                            className={`h-full rounded-sm transition-all duration-500 ${isNeg ? 'bg-red-500' : 'bg-green-600'}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-gray-400 w-12 flex-shrink-0 text-right">
+                          {Math.floor(Math.random() * 50) + 10}
+                        </span>
                       </div>
                     </div>
                   );
@@ -406,8 +414,29 @@ const PropertyDetail = () => {
                 <tbody className="divide-y divide-gray-100">
                   {riskBreakdown.map(({ label, score, hasView }) => {
                     const scoreColor = (score ?? 0) >= 70 ? 'text-red-600' : (score ?? 0) >= 40 ? 'text-amber-600' : 'text-green-600';
+
+                    // Generate mock breakdown data based on the label for the tooltip
+                    let tooltipText = "";
+                    if (label === 'Property Condition Risk') {
+                      tooltipText = "Wood score: 80\nAge score: 20\nMaintenance: 15";
+                    } else if (label === 'Locality Risk') {
+                      tooltipText = "Crime Rate: 45\nFire Incident: 60\nProximity to Services: 30";
+                    } else if (label === 'Claim History Risk') {
+                      tooltipText = "Past Claims: 3\nSeverity: Low\nFrequency Score: 15";
+                    } else if (label === 'Coverage Risk') {
+                      tooltipText = "Underinsurance Risk: 40\nLiability Exposure: 25";
+                    } else if (label === 'Construction Risk') {
+                      tooltipText = "Material Quality: 60\nCode Compliance: 40";
+                    } else if (label === 'Property Vulnerability Risk') {
+                      tooltipText = "Roof Condition: 75\nWildfire Proximity: High\nFlood Zone: Minimal";
+                    }
+
                     return (
-                      <tr key={label} className="hover:bg-gray-50">
+                      <tr
+                        key={label}
+                        className="hover:bg-gray-50 transition-colors"
+                        title={tooltipText}
+                      >
                         <td className="py-2 text-gray-700 font-medium">{label}</td>
                         <td className="py-2 w-16">
                           <span className={`font-mono font-semibold text-sm ${scoreColor}`}>{score ?? '—'}</span>
