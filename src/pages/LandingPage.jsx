@@ -37,16 +37,17 @@ const LandingPage = () => {
                 <p className="text-gray-600 text-lg leading-relaxed mb-4">
                   An end-to-end AI underwriting system that combines computer vision, geospatial risk analysis, and behavioral ML to generate intelligent property risk scores and quote propensity predictions.
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 w-full">
                   {[
                     { icon: "🛰", label: "Computer Vision", desc: "Roof & property analysis" },
                     { icon: "📍", label: "Geospatial Risk", desc: "Proximity hazard scoring" },
                     { icon: "🧠", label: "Propensity ML", desc: "Quote likelihood prediction" },
+                    { icon: "📧", label: "Email Triage", desc: "Auto-emails to UWT teams" },
                   ].map((item) => (
-                    <div key={item.label} className="bg-blue-50 rounded-xl p-3 border border-blue-100">
-                      <div className="text-xl mb-1">{item.icon}</div>
-                      <div className="text-xs font-semibold text-blue-800">{item.label}</div>
-                      <div className="text-xs text-blue-600">{item.desc}</div>
+                    <div key={item.label} className="bg-blue-50 rounded-xl p-2 border border-blue-100 flex flex-col justify-center">
+                      <div className="text-lg mb-0.5">{item.icon}</div>
+                      <div className="text-[11px] font-semibold text-blue-800 whitespace-nowrap">{item.label}</div>
+                      <div className="text-[10px] text-blue-600 whitespace-nowrap">{item.desc}</div>
                     </div>
                   ))}
                 </div>
