@@ -23,10 +23,10 @@ const ShapDrivers = ({ drivers }) => {
             <div key={index} className="space-y-0.5">
               <div className="flex items-center justify-between text-xs">
                 <span
-                  className="text-gray-600 truncate max-w-[130px] block"
+                  className="text-gray-600 block text-left"
                   title={driver.feature.replace(/_/g, ' ')}
                 >
-                  {driver.feature.replace(/_/g, ' ')} <span className={`font-semibold text-[11px] ${isNegative ? 'text-red-500' : 'text-green-600'}`}>({isNegative ? '' : '+'}{val.toFixed(2)})</span>
+                  {driver.feature.replace(/_/g, ' ')} <span className={`font-semibold text-[11px] ${isNegative ? 'text-red-500' : 'text-green-600'}`}>({isNegative ? '' : '+'}{val.toFixed(1)})</span>
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -37,7 +37,7 @@ const ShapDrivers = ({ drivers }) => {
                   />
                 </div>
                 <span className="text-[10px] text-gray-400 w-6 text-right">
-                  {Math.floor(Math.random() * 50) + 10}
+                  {driver.value || ''}
                 </span>
               </div>
             </div>
