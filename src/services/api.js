@@ -98,3 +98,35 @@ export const fetchTriageProperties = async () => {
   const response = await api.get('/api/triage/properties');
   return response.data;
 };
+
+// ── Two-pass ML prediction API calls ─────────────────────────────────────────
+
+/**
+ * Run 1 — Preliminary propensity scoring.
+ * Sends all property rows as JSON to the ML pipeline (replaces CSV upload).
+ * Returns { predictions, shap_global, shap_local, row_count }
+ */
+export const runPreliminaryPredictions = async (rows, rules = {}, weights = {}) => {
+  const response = await api.post(
+    '/api/ml/submissions',
+    { rows, rules, weights },
+    { timeout: 90000 }
+  );
+  return response.data;
+};
+
+/**
+ * Run 2 — Final propensity scoring with property vulnerability weight.
+ * Sends only non-BPO rows (frontend filters out excludedIds before calling).
+ * Returns { predictions, shap_global, shap_local, row_count }
+ */
+export const runFinalPredictions = async (rows, excludedIds = [], rules = {}, weights = {}) => {
+  const filteredRows = rows.filter(r => !excludedIds.includes(r.submission_id));
+  const response = await api.post(
+    '/api/ml/final_score',
+    { rows: filteredRows, rules, weights },
+    { timeout: 90000 }
+  );
+  return response.data;
+};
+

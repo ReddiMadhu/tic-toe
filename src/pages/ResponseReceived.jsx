@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { fetchProperties, triggerProcess } from '../services/api';
+import { fetchProperties } from '../services/api';
 import { mockProperties } from '../data/mockData';
 import { useEffect } from 'react';
+import { usePropensity } from '../context/PropensityContext';
 
 const ResponseReceived = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const submission = location.state?.submission;
+  const { setSubmission } = usePropensity();
 
   const [properties, setProperties] = useState([]);
   const [processing, setProcessing] = useState(false);
@@ -44,13 +46,16 @@ const ResponseReceived = () => {
     setProcessing(true);
     setError('');
     try {
-      await triggerProcess(submission.id);
-      navigate('/processing', { state: { submissionId: submission.id } });
+      // Store the underwriter submission in context so prediction pages can read it
+      setSubmission(submission);
+      // Navigate to the new two-pass loading flow instead of legacy /processing
+      navigate('/prediction-loading', { state: { submissionId: submission.id, submission } });
     } catch (err) {
       setError('Failed to start process. Please try again.');
       setProcessing(false);
     }
   };
+
 
   const formatTime = (ts) => {
     if (!ts) return 'Just now';

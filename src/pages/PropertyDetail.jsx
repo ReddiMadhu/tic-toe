@@ -67,11 +67,13 @@ const PropertyDetail = () => {
   const [letterResult, setLetterResult] = useState(null);
   const [justification, setJustification] = useState('');
 
-  // Data passed from DecisionComparison via router state
+  // Data passed from DecisionComparison / PredictionResultsPage via router state
   const passedProperty = location.state?.property;
   const passedPropertyResult = location.state?.propertyResult;
   const passedResults = location.state?.results;
   const fromTriage = location.state?.fromTriage ?? false;
+  // When navigated from PredictionResultsPage, hide roof image + risk breakdown
+  const fromPreliminary = location.state?.fromPreliminary ?? false;
 
   // When navigated from triage, fetch result data via submission_id
   useEffect(() => {
@@ -289,8 +291,8 @@ const PropertyDetail = () => {
 
         {/* ── 2. Images Section ── */}
         <div className="rounded-lg overflow-hidden border border-gray-300 bg-white shadow-sm">
-          <SectionBar title="Images Section (Property + Roof)" />
-          <div className="p-3 grid grid-cols-2 gap-3 bg-gray-200">
+          <SectionBar title={fromPreliminary ? "Images Section (Property)" : "Images Section (Property + Roof)"} />
+          <div className={`p-3 bg-gray-200 ${fromPreliminary ? 'grid grid-cols-1' : 'grid grid-cols-2'} gap-3`}>
             <div className="relative">
               <img
                 src={property.imageUrl}
@@ -301,16 +303,18 @@ const PropertyDetail = () => {
                 Front Property Image
               </div>
             </div>
-            <div className="relative">
-              <img
-                src={property.roofImageUrl}
-                alt="Roof"
-                className="w-full h-48 object-cover"
-              />
-              <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs text-center py-1.5">
-                Roof Image
+            {!fromPreliminary && (
+              <div className="relative">
+                <img
+                  src={property.roofImageUrl}
+                  alt="Roof"
+                  className="w-full h-48 object-cover"
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs text-center py-1.5">
+                  Roof Image
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -396,7 +400,7 @@ const PropertyDetail = () => {
             </div>
           </div>
 
-          {/* ── 5. Property Risk Breakdown ── */}
+          {/* ── 5. Property Risk Breakdown — Property Vulnerability Risk row hidden when from preliminary results ── */}
           <div className="rounded-lg overflow-hidden border border-gray-300 bg-white shadow-sm flex flex-col">
             <SectionBar
               title="Property Risk Breakdown (Structured Risks)"
@@ -416,7 +420,9 @@ const PropertyDetail = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {riskBreakdown.map(({ label, score, hasView, tooltipText }) => {
+                  {riskBreakdown
+                    .filter(({ hasView }) => !(fromPreliminary && hasView))
+                    .map(({ label, score, hasView, tooltipText }) => {
                     const scoreColor = (score ?? 0) >= 70 ? 'text-red-600' : (score ?? 0) >= 40 ? 'text-amber-600' : 'text-green-600';
 
                     return (
