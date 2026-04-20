@@ -245,6 +245,17 @@ function Run2Canvas({ animStep }) {
       </svg>
 
       {s>=1 && (
+        <div style={{ position:"absolute", left:10, top:-35, whiteSpace:"nowrap" }} className="fade-in">
+          <h2 className="text-[17px] font-bold text-gray-800">Triaging Low Propensity Submissions</h2>
+        </div>
+      )}
+      {s>=1 && (
+        <div style={{ position:"absolute", left:490, top:-35, whiteSpace:"nowrap" }} className="fade-in">
+          <h2 className="text-[17px] font-bold text-gray-800">Vulnerability Assessment and Recalculation of Propensity Levels for Medium/High Propensity Submissions</h2>
+        </div>
+      )}
+
+      {s>=1 && (
         <div className={`division-box fade-in ${s>=2?"completed":"processing"}`}
              style={{ position:"absolute", left:20, top:40, width:180, height:60, display:"flex", alignItems:"center", justifyContent:"center" }}>
           <div className="division-label" style={{ position:"static", fontSize:14 }}>Low Propensity Submissions</div>
@@ -457,11 +468,11 @@ export default function PredictionLoadingPage() {
             <h1 className="text-xl font-bold text-gray-900">
               {isRerun ? "Re-Running AI Predictions" : "Running AI Predictions"}
             </h1>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {isRerun
-                ? `${excludedIds.length} low-propensity properties excluded · Full pipeline with Property Insights now active`
-                : "Processing initial evaluation pass — Submission Details, Broker Profiles & Quote Propensity"}
-            </p>
+            {!isRerun && (
+              <p className="text-xs text-gray-500 mt-0.5">
+                Processing initial evaluation pass — Submission Details, Broker Profiles & Quote Propensity
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-1.5 shadow-sm max-w-md">
@@ -471,7 +482,7 @@ export default function PredictionLoadingPage() {
       </div>
 
       {/* Scaled canvas */}
-      <div ref={canvasWrapRef} style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", padding:12, position:"relative" }}>
+      <div ref={canvasWrapRef} style={{ flex:1, display:"flex", alignItems:"flex-start", justifyContent:"center", overflow:"hidden", padding:"40px 12px 12px 12px", position:"relative" }}>
 
         {/* Run 2 — View Results button */}
         {r2Finished && (

@@ -118,12 +118,11 @@ const PropertyDetail = () => {
 
   // Real risk breakdown from prediction data (scores out of 100)
   const riskBreakdown = propertyResult.risk_breakdown || [
-    { label: 'Property Vulnerability Risk', score: property_vulnerability_risk, hasView: true, tooltipText: "Roof Condition: 75\nWildfire Proximity: High\nFlood Zone: Minimal" },
-    { label: 'Property Condition Risk', score: property_condition_risk, tooltipText: "Wood score: 80\nAge score: 20\nMaintenance: 15" },
-    { label: 'Locality Risk', score: locality_risk, tooltipText: "Crime Rate: 45\nFire Incident: 60\nProximity to Services: 30" },
-    { label: 'Claim History Risk', score: claim_history_risk, tooltipText: "Past Claims: 3\nSeverity: Low\nFrequency Score: 15" },
-    { label: 'Coverage Risk', score: coverage_risk, tooltipText: "Underinsurance Risk: 40\nLiability Exposure: 25" },
-    { label: 'Construction Risk', score: construction_risk_score, tooltipText: "Material Quality: 60\nCode Compliance: 40" },
+    { label: 'Construction Risk', score: construction_risk_score, tooltipText: "Building Material (40%), Code compliance (25%), Construction permit (10%), Foundation (25%)" },
+    { label: 'Locality Risk', score: locality_risk, tooltipText: "Fire Rate (30%), Crime Rate (40%), Industrial Distance (15%), Fire Station Distance (15%)" },
+    { label: 'Coverage Risk', score: coverage_risk, tooltipText: "Coverage Type (30%), Property Category (40%), Policy Type (30%)" },
+    { label: 'Claim History Risk', score: claim_history_risk, tooltipText: "Property past loss frequency (40%), Claim Amount (40%), Declined Insurance (20%)" },
+    { label: 'Property Condition Risk', score: property_condition_risk, tooltipText: "Occupancy (45%), Age Penalty (35%), Safety Deduction (20%)" },
   ];
 
   // Separate top 6 positive and top 6 negative SHAP drivers, rounded to 3 decimals
@@ -257,9 +256,20 @@ const PropertyDetail = () => {
               Submission ID: <span className="font-semibold text-gray-900">{propertyResult.submission_id}</span>
             </span>
             <span className="text-gray-300">|</span>
-            <span className="text-gray-600">
-              Risk Score: <span className={`font-semibold ${propColor.text}`}>{total_risk_score}</span>
-              <span className="text-gray-400 text-xs ml-1">/ 100</span>
+            <span className="text-gray-600 flex items-center gap-1.5">
+              Property Vulnerability Risk: 
+              <span className={`font-semibold ${property_vulnerability_risk >= 70 ? 'text-red-600' : property_vulnerability_risk >= 40 ? 'text-amber-600' : 'text-green-600'}`}>
+                {property_vulnerability_risk}
+              </span>
+              <span className="text-gray-400 text-xs">/ 100</span>
+              {(!fromPreliminary) && (
+                <button
+                  onClick={() => setShowVulnerabilityPopup(true)}
+                  className="text-[10px] px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium shadow-sm transition-colors ml-1"
+                >
+                  View
+                </button>
+              )}
             </span>
             <span className="text-gray-300">|</span>
             <span className="text-gray-600">
@@ -320,10 +330,10 @@ const PropertyDetail = () => {
                   ))}
                 </tr>
                 <tr>
-                  {paramRow2.map(({ label, value }) => (
+                  {paramRow2.map(({ label, value, render }) => (
                     <td key={label} className="px-3 py-2.5 border-r border-gray-200 last:border-r-0 whitespace-nowrap">
                       <p className="text-gray-400 text-[10px] uppercase tracking-wide">{label}</p>
-                      <p className="font-semibold text-gray-800 text-xs mt-0.5">{value}</p>
+                      {render ? render() : <p className="font-semibold text-gray-800 text-xs mt-0.5">{value}</p>}
                     </td>
                   ))}
                 </tr>
@@ -403,36 +413,23 @@ const PropertyDetail = () => {
                   <tr className="border-b border-gray-200">
                     <th className="text-left text-[10px] text-gray-400 font-medium pb-1.5 uppercase tracking-wide">Risk Factor</th>
                     <th className="text-left text-[10px] text-gray-400 font-medium pb-1.5 uppercase tracking-wide w-16">Score</th>
-                    <th className="text-right text-[10px] text-gray-400 font-medium pb-1.5 uppercase tracking-wide w-14">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {riskBreakdown
                     .filter(({ hasView }) => !(fromPreliminary && hasView))
-                    .map(({ label, score, hasView, tooltipText }) => {
+                    .map(({ label, score, tooltipText }) => {
                     const scoreColor = (score ?? 0) >= 70 ? 'text-red-600' : (score ?? 0) >= 40 ? 'text-amber-600' : 'text-green-600';
 
                     return (
                       <tr
                         key={label}
-                        className="hover:bg-gray-50 transition-colors"
+                        className="hover:bg-gray-50 transition-colors cursor-help"
                         title={tooltipText}
                       >
                         <td className="py-2 text-gray-700 font-medium">{label}</td>
                         <td className="py-2 w-16">
                           <span className={`font-mono font-semibold text-sm ${scoreColor}`}>{score ?? '—'}</span>
-                        </td>
-                        <td className="py-2 text-right">
-                          {hasView ? (
-                            <button
-                              onClick={() => setShowVulnerabilityPopup(true)}
-                              className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors shadow-sm"
-                            >
-                              View
-                            </button>
-                          ) : (
-                            <span className="text-gray-300">—</span>
-                          )}
                         </td>
                       </tr>
                     );

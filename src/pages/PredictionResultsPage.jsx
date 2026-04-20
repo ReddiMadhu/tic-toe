@@ -114,18 +114,18 @@ export default function PredictionResultsPage() {
                   Step 2 of 4
                 </span>
               </div>
-              <p className="text-xs text-gray-400 mt-0.5">Initial scoring complete — review before running the full Property Insights pipeline</p>
+              <p className="text-xs text-gray-400 mt-0.5">Initial scoring complete — review before running the full vulnerability assessment pipeline</p>
             </div>
           </div>
 
           {/* Count chips — no emojis */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold px-3 py-1 rounded-full bg-green-50 text-green-700 border border-green-200">
-              {eligibleCount} Eligible
+              {eligibleCount} Eligible for further assessment
             </span>
             {bpoCount > 0 && (
               <span className="text-xs font-semibold px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-200">
-                {bpoCount} BPO
+                {bpoCount} Triage to BPO
               </span>
             )}
           </div>
@@ -212,7 +212,7 @@ export default function PredictionResultsPage() {
                                 </div>
                                 <span className={`text-sm font-extrabold ${colors.text}`}>{Math.round(score * 100)}%</span>
                                 <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${colors.bg} ${colors.text} ${colors.border}`}>
-                                  {label.replace(' Propensity','')}
+                                  {label.replace(' Propensity','').replace('Mid', 'Medium')}
                                 </span>
                               </div>
                             )}
@@ -227,9 +227,15 @@ export default function PredictionResultsPage() {
                           {/* Status */}
                           <td className="px-4 py-3">
                             {prop.isMlExcluded ? (
-                              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-300">
-                                ML Excluded
-                              </span>
+                              <div className="group relative inline-block">
+                                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-300">
+                                  ML Excluded
+                                </span>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg z-10 whitespace-normal text-center">
+                                  Excluded by underwriting rules (e.g., coverage or income below minimum thresholds).
+                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                                </div>
+                              </div>
                             ) : bpo ? (
                               <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
                                 <span className="relative flex h-2 w-2">

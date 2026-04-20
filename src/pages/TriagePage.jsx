@@ -298,9 +298,9 @@ const TriagePage = () => {
                               <span className="text-xs font-semibold text-gray-400">—</span>
                             ) : (
                               <div className="flex flex-col items-center gap-0.5 opacity-60">
-                                <span className={`text-base font-extrabold ${TIER_SCORE_COLOR[tier1]}`}>{score1Pct}%</span>
-                                <span className={`text-[10px] font-medium border rounded-full px-2 py-0.5 w-fit ${TIER_BADGE[tier1]}`}>
-                                  {row.prelimLabel}
+                                <span className={`text-xs font-bold ${TIER_SCORE_COLOR[tier1]}`}>{score1Pct}%</span>
+                                <span className={`text-[9px] font-medium border rounded-full px-1.5 py-0.5 w-fit ${TIER_BADGE[tier1]}`}>
+                                  {row.prelimLabel.replace('Mid', 'Medium')}
                                 </span>
                               </div>
                             )}
@@ -326,7 +326,7 @@ const TriagePage = () => {
                               <div className="flex flex-col items-center gap-0.5">
                                 <span className={`text-base font-extrabold ${TIER_SCORE_COLOR[tier2]}`}>{score2Pct}%</span>
                                 <span className={`text-[10px] font-medium border rounded-full px-2 py-0.5 w-fit ${TIER_BADGE[tier2]}`}>
-                                  {row.finalLabel}
+                                  {row.finalLabel.replace('Mid', 'Medium')}
                                 </span>
                               </div>
                             )}
@@ -381,13 +381,19 @@ const TriagePage = () => {
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden sticky top-4">
             <div className="h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"/>
             <div className="p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                </svg>
-                <h3 className="text-sm font-semibold text-gray-800">Key Risk Drivers</h3>
+              <div className="mb-3 pb-3 border-b border-gray-100">
+                <h3 className="text-[13px] font-bold text-gray-800 mb-2">Final Propensity Calculation</h3>
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between text-xs px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded">
+                    <span className="text-gray-600 font-medium">Property Vulnerability</span>
+                    <span className="font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">60%</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded">
+                    <span className="text-gray-600 font-medium">Preliminary Score</span>
+                    <span className="font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">40%</span>
+                  </div>
+                </div>
               </div>
-              <p className="text-xs text-gray-400 mb-3">Global SHAP — top factors influencing AI scores</p>
               {run1ShapGlobal?.length > 0 ? (
                 <ShapDrivers drivers={run1ShapGlobal}/>
               ) : (
