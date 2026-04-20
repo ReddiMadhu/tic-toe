@@ -44,8 +44,6 @@ export default function PredictionResultsPage() {
     setExcludedIds(ids);
   }, [run1Properties]); // eslint-disable-line
 
-  const bpoCount     = excludedIds.length;
-  const eligibleCount = run1Properties.length - bpoCount;
   const prioritizedIds = submission?.prioritized_ids ?? [];
   const discardedIds   = submission?.discarded_ids ?? [];
 
@@ -55,10 +53,15 @@ export default function PredictionResultsPage() {
     return 'Not Rated';
   };
 
-  const mergedProperties = run1Properties.map(pred => {
-    const base = properties.find(p => p.submission_id === pred.submission_id) ?? {};
-    return { ...base, ...pred };
+  const mergedProperties = properties.map(base => {
+    const pred = run1Properties.find(p => p.submission_id === base.submission_id);
+    const isMlExcluded = !pred; // Backend model completely excluded this row
+    return { ...base, ...(pred || {}), isMlExcluded };
   });
+
+  const bpoCount     = excludedIds.length;
+  const mlExcludedCount = mergedProperties.filter(p => p.isMlExcluded).length;
+  const eligibleCount = mergedProperties.length - bpoCount - mlExcludedCount;
 
   const isBPO = (id) => excludedIds.includes(id);
 
@@ -138,7 +141,7 @@ export default function PredictionResultsPage() {
           <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
             <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
               <h2 className="text-sm font-semibold text-gray-800">Preliminary Propensity Scores</h2>
-              <span className="text-xs text-gray-400">{run1Properties.length} properties</span>
+              <span className="text-xs text-gray-400">{mergedProperties.length} properties</span>
             </div>
 
             {run1Properties.length === 0 ? (
@@ -200,15 +203,19 @@ export default function PredictionResultsPage() {
 
                           {/* Preliminary Score */}
                           <td className="px-4 py-3">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-20 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                <div className={`h-full bg-gradient-to-r ${colors.gradientBar} rounded-full`} style={{ width: `${Math.round(score * 100)}%` }}/>
+                            {prop.isMlExcluded ? (
+                              <span className="text-xs font-semibold text-gray-400">—</span>
+                            ) : (
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-20 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                  <div className={`h-full bg-gradient-to-r ${colors.gradientBar} rounded-full`} style={{ width: `${Math.round(score * 100)}%` }}/>
+                                </div>
+                                <span className={`text-sm font-extrabold ${colors.text}`}>{Math.round(score * 100)}%</span>
+                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${colors.bg} ${colors.text} ${colors.border}`}>
+                                  {label.replace(' Propensity','')}
+                                </span>
                               </div>
-                              <span className={`text-sm font-extrabold ${colors.text}`}>{Math.round(score * 100)}%</span>
-                              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${colors.bg} ${colors.text} ${colors.border}`}>
-                                {label.replace(' Propensity','')}
-                              </span>
-                            </div>
+                            )}
                           </td>
 
                           {/* Cover Type */}
@@ -219,7 +226,11 @@ export default function PredictionResultsPage() {
 
                           {/* Status */}
                           <td className="px-4 py-3">
-                            {bpo ? (
+                            {prop.isMlExcluded ? (
+                              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-300">
+                                ML Excluded
+                              </span>
+                            ) : bpo ? (
                               <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
                                 <span className="relative flex h-2 w-2">
                                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"/>

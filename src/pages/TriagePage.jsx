@@ -110,18 +110,21 @@ const TriagePage = () => {
     const disIds = submission?.discarded_ids ?? [];
     const getSel = (id) => priIds.includes(id) ? 'Prioritized' : disIds.includes(id) ? 'Discarded' : 'Not Rated';
 
-    return run1Properties.map(pred => {
-      const base  = ctxProperties.find(p => p.submission_id === pred.submission_id) ?? {};
-      const isBPO = excludedIds.includes(pred.submission_id);
-      const prelimScore = pred.quote_propensity ?? 0;
-      const prelimLabel = pred.quote_propensity_label ?? '—';
+    return ctxProperties.map(base => {
+      const pred = run1Properties.find(p => p.submission_id === base.submission_id);
+      const isMlExcluded = !pred;
+      const isBPO = excludedIds.includes(base.submission_id);
+
+      const prelimScore = pred?.quote_propensity ?? 0;
+      const prelimLabel = pred?.quote_propensity_label ?? '—';
       let finalScore = prelimScore, finalLabel = 'BPO Triage';
-      if (!isBPO) {
-        const r2 = run2Properties.find(r => r.submission_id === pred.submission_id);
+
+      if (!isBPO && !isMlExcluded) {
+        const r2 = run2Properties.find(r => r.submission_id === base.submission_id);
         finalScore = r2?.quote_propensity ?? prelimScore;
         finalLabel = r2?.quote_propensity_label ?? prelimLabel;
       }
-      return { ...base, ...pred, selection: getSel(pred.submission_id), prelimScore, prelimLabel, finalScore, finalLabel, isBPO };
+      return { ...base, ...(pred || {}), selection: getSel(base.submission_id), prelimScore, prelimLabel, finalScore, finalLabel, isBPO, isMlExcluded };
     });
   };
 
@@ -291,17 +294,25 @@ const TriagePage = () => {
 
                           {/* Preliminary — muted, no bar */}
                           <td className="px-3 py-2 text-center border-l border-gray-100 bg-gray-50/50">
-                            <div className="flex flex-col items-center gap-0.5 opacity-60">
-                              <span className={`text-base font-extrabold ${TIER_SCORE_COLOR[tier1]}`}>{score1Pct}%</span>
-                              <span className={`text-[10px] font-medium border rounded-full px-2 py-0.5 w-fit ${TIER_BADGE[tier1]}`}>
-                                {row.prelimLabel}
-                              </span>
-                            </div>
+                            {row.isMlExcluded ? (
+                              <span className="text-xs font-semibold text-gray-400">—</span>
+                            ) : (
+                              <div className="flex flex-col items-center gap-0.5 opacity-60">
+                                <span className={`text-base font-extrabold ${TIER_SCORE_COLOR[tier1]}`}>{score1Pct}%</span>
+                                <span className={`text-[10px] font-medium border rounded-full px-2 py-0.5 w-fit ${TIER_BADGE[tier1]}`}>
+                                  {row.prelimLabel}
+                                </span>
+                              </div>
+                            )}
                           </td>
 
                           {/* Final Propensity — vivid, no bar */}
                           <td className="px-3 py-2 text-center border-r border-gray-100 bg-indigo-50/20">
-                            {row.isBPO ? (
+                            {row.isMlExcluded ? (
+                              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-300">
+                                ML Excluded
+                              </span>
+                            ) : row.isBPO ? (
                               <div className="flex flex-col items-center gap-0.5">
                                 <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-300">
                                   <span className="relative flex h-2 w-2">
