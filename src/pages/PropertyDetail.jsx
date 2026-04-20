@@ -75,20 +75,12 @@ const PropertyDetail = () => {
   // When navigated from PredictionResultsPage, hide roof image + risk breakdown
   const fromPreliminary = location.state?.fromPreliminary ?? false;
 
-  // When navigated from triage, fetch result data via submission_id
-  useEffect(() => {
-    if (!fromTriage || !passedProperty?.submission_id) return;
-    fetchPropertyResult(passedProperty.submission_id)
-      .then(setTriageResult)
-      .catch(() => setTriageResult(null));
-  }, [fromTriage, passedProperty?.submission_id]);
-
-  // Use passed data, fall back to scanning mockResultsNew by id
+  // When navigated from triage, passedProperty contains the full context including SHAP and Run 1 scores
   const results = passedResults || mockResultsNew;
   const propertiesList = mockProperties;
 
   const propertyResult = fromTriage
-    ? (triageResult || null)
+    ? passedProperty
     : (passedPropertyResult
       || results?.results?.find((r) => r.submission_id === id)
       || results?.results?.[0]);
@@ -97,14 +89,6 @@ const PropertyDetail = () => {
   const property = passedProperty || propertiesList[propIndex] || propertiesList[0];
 
   if (!property || !propertyResult) {
-    // While waiting for triage API fetch, show a loading state
-    if (fromTriage && !triageResult) {
-      return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-        </div>
-      );
-    }
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -142,12 +126,15 @@ const PropertyDetail = () => {
     { label: 'Construction Risk', score: construction_risk_score, tooltipText: "Material Quality: 60\nCode Compliance: 40" },
   ];
 
-  // Separate top 5 positive and top 5 negative SHAP drivers
-  const shapList = shap_values.map(s => ({
-    feature: s.feature,
-    val: s.mean_abs_shap ?? s.contribution ?? 0,
-    value: s.value
-  }));
+  // Separate top 6 positive and top 6 negative SHAP drivers, rounded to 3 decimals
+  const shapList = shap_values.map(s => {
+    const rawVal = s.val ?? s.mean_abs_shap ?? s.contribution ?? 0;
+    return {
+      feature: (s.feature || '').replace(/_/g, ' '),
+      val: parseFloat(rawVal.toFixed(3)),
+      value: s.value
+    };
+  });
 
   const posDrivers = shapList.filter(s => s.val > 0)
     .sort((a, b) => b.val - a.val)

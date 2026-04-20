@@ -394,7 +394,17 @@ export default function PredictionLoadingPage() {
         // Wait for API to finish before showing "Next"
         const result = await apiPromise;
         if (result && alive) {
-          setRun1Properties(result.predictions ?? []);
+          const preds = result.predictions ?? [];
+          const locals = result.shap_local ?? [];
+          setRun1Properties(preds.map((p, i) => {
+            const sl = locals[i] ?? {};
+            const shap_values = Object.entries(sl).map(([feature, val]) => ({
+              feature,
+              val,
+              value: p[feature] ?? null
+            }));
+            return { ...p, shap_local: sl, shap_values };
+          }));
           setRun1ShapGlobal(
             (result.shap_global ?? []).map(s => ({ feature: s.feature, contribution: s.mean_abs_shap ?? s.contribution ?? 0 }))
           );
