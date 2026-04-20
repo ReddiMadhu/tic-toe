@@ -124,10 +124,6 @@ def _mock_fallback(rows: list[dict], is_final: bool) -> dict:
     Return deterministic mock predictions keyed by submission_id.
     Run 2 (final) scores are slightly adjusted (+/- realistic delta) from Run 1.
     """
-    FINAL_DELTA = {
-        "SUB00008": +0.014, "SUB00012": -0.044, "SUB00137": -0.056,
-        "SUB00164": +0.045, "SUB07726": +0.059,
-    }
 
     predictions = []
     for row in rows:
@@ -138,15 +134,27 @@ def _mock_fallback(rows: list[dict], is_final: bool) -> dict:
         if mock_pred:
             base_prob = mock_pred["quote_propensity_probability"]
             if is_final:
-                base_prob = round(min(1.0, max(0.0, base_prob + FINAL_DELTA.get(sid, 0.0))), 3)
+                # Dynamic calculated logic based on Frontend weights requirement
+                vuln_risk = mock_pred.get("property_vulnerability_risk", 50)
+                vuln_score_normalized = (100 - vuln_risk) / 100.0
+                final_prob = (vuln_score_normalized * 0.6) + (base_prob * 0.4)
+                base_prob = round(final_prob, 3)
+                
+                # Dynamic reassignment of label tier based on calculated threshold
+                if base_prob >= 0.70:
+                    label = "High Propensity"
+                elif base_prob >= LOW_PROPENSITY_THRESHOLD:
+                    label = "Mid Propensity"
+                else:
+                    label = "Low Propensity"
             else:
                 base_prob = round(base_prob, 3)
-
-            label = mock_pred["quote_propensity"]
+                label = mock_pred["quote_propensity"]
             entry = {
                 **row,
                 **(mock_prop or {}),
                 "submission_id":         sid,
+                "property_id":           mock_prop.get("propertyId") if mock_prop else "",
                 "quote_propensity":      base_prob,
                 "quote_propensity_label": label,
                 "is_below_threshold":    base_prob < LOW_PROPENSITY_THRESHOLD,
@@ -227,20 +235,12 @@ async def run_final_predictions(payload: MLRequest):
     """
     Run 2 — Final propensity scoring with property vulnerability weightage (0.6).
 
-    The frontend is responsible for filtering out BPO-excluded rows before
-    calling this endpoint — only eligible properties should be passed in rows.
-
-    Accepts JSON:
-        { "rows": [ { "submission_id": "SUB00008", ... }, ... ],
-          "rules": { ... },
-          "weights": { ... } }
-
-    Returns:
-        { "row_count": N, "predictions": [...], "shap_global": [...], "shap_local": [...] }
+    Bypasses ML pipeline completely to apply pure deterministic calculation 
+    based on the property_vulnerability_risk * 60% and prelim score * 40%.
     """
     if not payload.rows:
         raise HTTPException(
             status_code=400,
             detail="No rows provided. BPO-excluded properties must be filtered before calling /final_score."
         )
-    return _run_pipeline(payload.rows, is_final=True)
+    return _mock_fallback(payload.rows, is_final=True)
