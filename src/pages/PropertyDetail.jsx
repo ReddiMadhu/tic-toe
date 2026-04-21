@@ -119,7 +119,7 @@ const PropertyDetail = () => {
     'Mid Propensity': { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-300' },
     'Low Propensity': { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-300' },
   };
-  const propColor = propensityColorMap[quote_propensity_label] || propensityColorMap['Mid Propensity'];
+  const propColor = propensityColorMap[fromTriage ? (propertyResult.finalLabel ?? quote_propensity_label) : quote_propensity_label] || propensityColorMap['Mid Propensity'];
 
   // Real risk breakdown from prediction data (scores out of 100)
   const riskBreakdown = propertyResult.risk_breakdown || [
@@ -278,8 +278,14 @@ const PropertyDetail = () => {
             </span>
             <span className="text-gray-300">|</span>
             <span className="text-gray-600">
-              Propensity: <span className={`font-semibold ${propColor.text}`}>{Math.round(quote_propensity * 100)}%</span>
-              {quote_propensity_label && <span className={`ml-1.5 text-xs font-semibold px-2 py-0.5 rounded border ${propColor.bg} ${propColor.text} ${propColor.border}`}>{riskEmoji} {quote_propensity_label}</span>}
+              {fromTriage ? 'Final Propensity' : 'Propensity'}:{' '}
+              <span className={`font-semibold ${propColor.text}`}>
+                {Math.round((fromTriage ? (propertyResult.finalScore ?? quote_propensity) : quote_propensity) * 100)}%
+              </span>
+              {(() => {
+                const displayLabel = fromTriage ? (propertyResult.finalLabel ?? quote_propensity_label) : quote_propensity_label;
+                return displayLabel && <span className={`ml-1.5 text-xs font-semibold px-2 py-0.5 rounded border ${propColor.bg} ${propColor.text} ${propColor.border}`}>{riskEmoji} {displayLabel}</span>;
+              })()}
             </span>
             <div className="ml-auto">
               {!fromTriage && (
