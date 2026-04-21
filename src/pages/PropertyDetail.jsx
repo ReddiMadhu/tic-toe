@@ -300,12 +300,12 @@ const PropertyDetail = () => {
         {/* ── 2. Images Section ── */}
         <div className="rounded-lg overflow-hidden border border-gray-300 bg-white shadow-sm">
           <SectionBar title={fromPreliminary ? "Images Section (Property)" : "Images Section (Property + Roof)"} />
-          <div className={`p-3 bg-gray-200 ${fromPreliminary ? 'grid grid-cols-1' : 'grid grid-cols-2'} gap-3`}>
-            <div className="relative">
+          <div className={`p-3 bg-gray-200 ${fromPreliminary ? 'flex justify-center' : 'grid grid-cols-2'} gap-3`}>
+            <div className={`relative ${fromPreliminary ? 'max-w-md w-full' : ''}`}>
               <img
                 src={property.imageUrl}
                 alt="Property front"
-                className="w-full h-48 object-cover"
+                className={fromPreliminary ? 'w-full rounded object-contain' : 'w-full h-48 object-cover'}
               />
               <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs text-center py-1.5">
                 Front Property Image
