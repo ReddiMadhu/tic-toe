@@ -101,12 +101,17 @@ const PropertyDetail = () => {
 
   const {
     quote_propensity, quote_propensity_label,
-    total_risk_score,
+    total_risk_score, property_insight_id,
     property_vulnerability_risk, construction_risk_score,
     locality_risk, coverage_risk, claim_history_risk, property_condition_risk,
     shap_values = [], vulnerability_data = {}, user_selection,
     property_state, submission_channel: res_channel, occupancy_type: res_occupancy, cover_type: res_cover,
   } = propertyResult;
+
+  // Build PropertyInsights link from property_id (opens external Property API portal)
+  const propertyInsightsLink = property_insight_id
+    ? `${import.meta.env.VITE_PROPERTY_API_BASE || 'http://localhost:8000'}/get_address?property_id=${property_insight_id}`
+    : null;
 
   // Color based purely on quote_propensity_label — no ai_risk
   const propensityColorMap = {
@@ -206,7 +211,7 @@ const PropertyDetail = () => {
           data={vulnerability_data}
           onClose={() => setShowVulnerabilityPopup(false)}
           insightImage={vulnerability_data?.insight_image || property.roofImageUrl}
-          link={vulnerability_data?.link}
+          link={propertyInsightsLink || vulnerability_data?.link}
         />
       )}
 
@@ -262,9 +267,9 @@ const PropertyDetail = () => {
                 {property_vulnerability_risk}
               </span>
               <span className="text-gray-400 text-xs">/ 100</span>
-              {(!fromPreliminary) && (
+              {(!fromPreliminary && propertyInsightsLink) && (
                 <button
-                  onClick={() => setShowVulnerabilityPopup(true)}
+                  onClick={() => window.open(propertyInsightsLink, '_blank', 'noopener,noreferrer')}
                   className="text-[10px] px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium shadow-sm transition-colors ml-1"
                 >
                   View

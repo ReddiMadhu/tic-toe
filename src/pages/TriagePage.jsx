@@ -123,6 +123,8 @@ const TriagePage = () => {
         const r2 = run2Properties.find(r => r.submission_id === base.submission_id);
         finalScore = r2?.quote_propensity ?? prelimScore;
         finalLabel = r2?.quote_propensity_label ?? prelimLabel;
+        // Merge Run 2 fields (property_id, property_vulnerability_risk, etc.)
+        if (r2) Object.assign(base, r2);
       }
       return { ...base, ...(pred || {}), selection: getSel(base.submission_id), prelimScore, prelimLabel, finalScore, finalLabel, isBPO, isMlExcluded };
     });

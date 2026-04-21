@@ -59,7 +59,9 @@ const ResponseReceived = () => {
 
   const formatTime = (ts) => {
     if (!ts) return 'Just now';
-    return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    // DB stores UTC without Z suffix — append it so JS parses as UTC
+    const utcTs = ts.endsWith('Z') ? ts : ts + 'Z';
+    return new Date(utcTs).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
   };
 
   return (

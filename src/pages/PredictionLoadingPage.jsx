@@ -306,6 +306,7 @@ export default function PredictionLoadingPage() {
   const {
     properties: ctxProperties, setProperties,
     excludedIds,
+    run1Properties,
     setRun1Properties, setRun1ShapGlobal,
     setRun2Properties,
     lowThreshold,
@@ -432,8 +433,17 @@ export default function PredictionLoadingPage() {
     if (!isRerun) return;
     let alive = true;
 
-    // Use properties from context (set during Run 1)
-    const rows = ctxProperties;
+    // Enrich rows with Run 1 preliminary scores before sending
+    const rows = ctxProperties.map(base => {
+      const r1 = run1Properties.find(p => p.submission_id === base.submission_id);
+      return {
+        submission_id: base.submission_id,
+        address: base.Property_address || base.address || '',
+        property_state: base.Property_state || base.state || '',
+        quote_propensity: r1?.quote_propensity ?? 0,
+        quote_propensity_label: r1?.quote_propensity_label ?? '',
+      };
+    });
     const apiPromise = runFinalPredictions(rows, excludedIds, {}, {})
       .catch(err => { console.warn('Run 2 API failed:', err.message); return null; });
 
